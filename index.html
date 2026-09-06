@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=5" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Local-first DoorDash work ledger: shifts, mileage, earnings, receipts." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Dash Ledger" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <link rel="icon" type="image/svg+xml" href="./icons/favicon.svg" />
+    <title>Dash Ledger</title>
+    <script>
+      // Apply the persisted theme before first paint to avoid a flash. This reads
+      // a tiny mirror of the theme setting; the authoritative value lives in IndexedDB.
+      (function () {
+        try {
+          var t = localStorage.getItem('dash-ledger:theme') || 'system';
+          var d = document.documentElement;
+          if (t === 'system') {
+            d.removeAttribute('data-theme');
+          } else {
+            d.setAttribute('data-theme', t);
+          }
+        } catch (e) {
+          /* storage unavailable: fall back to system theme */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>Dash Ledger needs JavaScript to run. Your records are stored only on this device.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

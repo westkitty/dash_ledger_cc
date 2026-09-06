@@ -1,0 +1,140 @@
+/*
+ * Dash Ledger design tokens.
+ *
+ * Visual direction: a trustworthy field ledger. Calm ink-on-paper in light,
+ * deep navy in dark. One teal accent for primary actions, restrained semantic
+ * colour for warnings / money. Numeric values use tabular figures everywhere.
+ */
+
+:root {
+  color-scheme: light;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', 'Roboto Mono', Menlo, Consolas, monospace;
+
+  /* Paper / ink */
+  --bg: #f6f5f1;
+  --bg-raised: #ffffff;
+  --bg-sunken: #eceae3;
+  --ink: #1c1b19;
+  --ink-soft: #55524c;
+  --ink-faint: #86827a;
+  --hairline: #d9d6cd;
+  --hairline-strong: #c3bfb2;
+
+  /* Accent — teal */
+  --accent: #0f766e;
+  --accent-strong: #0b5c55;
+  --accent-ink: #ffffff;
+  --accent-tint: #dcefec;
+
+  /* Semantic */
+  --good: #1a7f45;
+  --good-tint: #dcf3e4;
+  --warn: #b45309;
+  --warn-tint: #fdecd2;
+  --danger: #b42318;
+  --danger-tint: #fbe3e0;
+  --info: #1d4ed8;
+  --info-tint: #e0e7ff;
+
+  /* Money semantics */
+  --money-pos: #10603a;
+  --money-neg: #a5342a;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --shadow-1: 0 1px 2px rgba(28, 27, 25, 0.08), 0 1px 3px rgba(28, 27, 25, 0.06);
+  --shadow-2: 0 4px 16px rgba(28, 27, 25, 0.12);
+
+  --tap: 48px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --nav-h: 62px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --maxw: 640px;
+}
+
+:root[data-theme='dark'],
+:root:not([data-theme='light']) {
+  /* fallback dark handled below via media query */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --bg: #0b1020;
+    --bg-raised: #141a2e;
+    --bg-sunken: #090d1a;
+    --ink: #eef1f7;
+    --ink-soft: #b6bdcc;
+    --ink-faint: #7f8798;
+    --hairline: #26304a;
+    --hairline-strong: #38446485;
+
+    --accent: #2dd4bf;
+    --accent-strong: #14b8a6;
+    --accent-ink: #04211d;
+    --accent-tint: #103c39;
+
+    --good: #4ade80;
+    --good-tint: #10331f;
+    --warn: #fbbf24;
+    --warn-tint: #3a2c0c;
+    --danger: #f87171;
+    --danger-tint: #3a1512;
+    --info: #93c5fd;
+    --info-tint: #16233f;
+
+    --money-pos: #5fe0a3;
+    --money-neg: #ff9a8f;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #0b1020;
+  --bg-raised: #141a2e;
+  --bg-sunken: #090d1a;
+  --ink: #eef1f7;
+  --ink-soft: #b6bdcc;
+  --ink-faint: #7f8798;
+  --hairline: #26304a;
+  --hairline-strong: #384464;
+
+  --accent: #2dd4bf;
+  --accent-strong: #14b8a6;
+  --accent-ink: #04211d;
+  --accent-tint: #103c39;
+
+  --good: #4ade80;
+  --good-tint: #10331f;
+  --warn: #fbbf24;
+  --warn-tint: #3a2c0c;
+  --danger: #f87171;
+  --danger-tint: #3a1512;
+  --info: #93c5fd;
+  --info-tint: #16233f;
+
+  --money-pos: #5fe0a3;
+  --money-neg: #ff9a8f;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
