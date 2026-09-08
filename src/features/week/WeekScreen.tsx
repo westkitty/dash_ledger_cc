@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useLedger, useLedgerContext } from '../../state/store';
 import { Link, useRouter } from '../../app/router';
-import { Button, Card, ConfirmButton, EmptyState, IssueList, Money, Pill, StatGrid } from '../../components/ui';
+import { Button, Card, ConfirmButton, EmptyState, IssueList, Money, Notice, Pill, StatGrid } from '../../components/ui';
 import { markWeekReviewed, reopenWeek } from '../../db/repositories';
 import {
   mondayOf,
@@ -12,7 +12,7 @@ import {
   isWeekTemporallyComplete,
 } from '../../domain/dates';
 import { summariseWeek } from '../../domain/aggregation';
-import { weekCompleteness } from '../../domain/completeness';
+import { weekCompleteness, weekChangedSinceReview } from '../../domain/completeness';
 import { formatHours } from '../../domain/duration';
 import { computeMileage } from '../../domain/mileage';
 import { grossIncomeCents } from '../../domain/money';
@@ -36,12 +36,19 @@ export function WeekScreen({ weekKey }: { weekKey: string | null }) {
   );
 
   const closure = weeklyClosures.find((c) => c.weekKey === wk);
+  const staleness = useMemo(
+    () => weekChangedSinceReview(closure, shifts, expenses, receipts),
+    [closure, shifts, expenses, receipts],
+  );
   const temporallyComplete = isWeekTemporallyComplete(wk, today);
   const reviewState: 'in-progress' | 'review-due' | 'reviewed' = closure
     ? 'reviewed'
     : temporallyComplete
       ? 'review-due'
       : 'in-progress';
+
+  const warnCount = issues.filter((i) => i.severity === 'warn').length;
+  const infoCount = issues.length - warnCount;
 
   const weekShifts = shifts
     .filter((s) => s.weekKey === wk || mondayOf(s.date) === wk)
@@ -67,9 +74,10 @@ export function WeekScreen({ weekKey }: { weekKey: string | null }) {
         <Button onClick={() => go(nextWeekKey(wk))}>Next ›</Button>
       </div>
 
+      {/* 1 — what happened */}
       <Card>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-          {reviewState === 'reviewed' && <Pill tone="good">Reviewed</Pill>}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+          {reviewState === 'reviewed' && <Pill tone={staleness.stale ? 'warn' : 'good'}>{staleness.stale ? 'Reviewed · changed since' : 'Reviewed'}</Pill>}
           {reviewState === 'review-due' && <Pill tone="warn">Review due</Pill>}
           {reviewState === 'in-progress' && <Pill tone="neutral">In progress</Pill>}
           <span className="small muted">
@@ -98,69 +106,110 @@ export function WeekScreen({ weekKey }: { weekKey: string | null }) {
             },
           ]}
         />
-        <div className="divider" />
-        <StatGrid
-          stats={[
-            { label: 'Tracked expenses', value: <Money cents={summary.expenses.totalCents} /> },
-            { label: 'Non-vehicle business', value: <Money cents={summary.expenses.nonVehicleBusinessCents} /> },
-            { label: 'Vehicle actual-expense', value: <Money cents={summary.expenses.vehicleActualCents} /> },
-            { label: 'Parking', value: <Money cents={summary.expenses.parkingCents} /> },
-            { label: 'Tolls', value: <Money cents={summary.expenses.tollsCents} /> },
-            { label: 'Review-class expenses', value: summary.expenses.reviewCount },
-          ]}
-        />
-        <div className="divider" />
-        <StatGrid
-          stats={[
-            {
-              label: 'Hours',
-              value: summary.time.timeComplete ? formatHours(summary.time.knownHours) : `${formatHours(summary.time.knownHours)}*`,
-              sub: summary.time.timeComplete
-                ? `${summary.time.completedShifts} shift(s)`
-                : `* ${summary.time.shiftsMissingTime} shift(s) missing a time`,
-            },
-            {
-              label: 'Gross / hour',
-              value: summary.grossPerHourCents === null ? '—' : <Money cents={summary.grossPerHourCents} />,
-              sub:
-                summary.grossPerHourCents === null
-                  ? summary.time.timeComplete
-                    ? 'no hours recorded yet'
-                    : 'needs complete time data'
-                  : undefined,
-            },
-            {
-              label: 'Gross / business mile',
-              value: summary.grossPerBusinessMileCents === null ? '—' : <Money cents={summary.grossPerBusinessMileCents} />,
-            },
-            { label: 'Shifts', value: summary.shiftCount, sub: `${summary.completedShiftCount} completed` },
-            { label: 'Receipts', value: summary.receiptCount },
-            { label: 'Unresolved receipts', value: summary.unresolvedReceiptCount },
-          ]}
-        />
+
+        <details className="disclosure" style={{ marginTop: 12 }}>
+          <summary>Expense &amp; time breakdown</summary>
+          <div className="disclosure__body">
+            <StatGrid
+              stats={[
+                { label: 'Tracked expenses', value: <Money cents={summary.expenses.totalCents} /> },
+                { label: 'Non-vehicle business', value: <Money cents={summary.expenses.nonVehicleBusinessCents} /> },
+                { label: 'Vehicle actual-expense', value: <Money cents={summary.expenses.vehicleActualCents} /> },
+                { label: 'Parking', value: <Money cents={summary.expenses.parkingCents} /> },
+                { label: 'Tolls', value: <Money cents={summary.expenses.tollsCents} /> },
+                { label: 'Review-class expenses', value: summary.expenses.reviewCount },
+              ]}
+            />
+            <div className="divider" />
+            <StatGrid
+              stats={[
+                {
+                  label: 'Hours',
+                  value: summary.time.timeComplete
+                    ? formatHours(summary.time.knownHours)
+                    : `${formatHours(summary.time.knownHours)}*`,
+                  sub: summary.time.timeComplete
+                    ? `${summary.time.completedShifts} shift(s)`
+                    : `* ${summary.time.shiftsMissingTime} shift(s) missing a time`,
+                },
+                {
+                  label: 'Gross / hour',
+                  value:
+                    summary.grossPerHourCents === null ? '—' : <Money cents={summary.grossPerHourCents} />,
+                  sub:
+                    summary.grossPerHourCents === null
+                      ? summary.time.timeComplete
+                        ? 'no hours recorded yet'
+                        : 'needs complete time data'
+                      : undefined,
+                },
+                {
+                  label: 'Gross / business mile',
+                  value:
+                    summary.grossPerBusinessMileCents === null ? (
+                      '—'
+                    ) : (
+                      <Money cents={summary.grossPerBusinessMileCents} />
+                    ),
+                },
+                { label: 'Shifts', value: summary.shiftCount, sub: `${summary.completedShiftCount} completed` },
+                { label: 'Receipts', value: summary.receiptCount },
+                { label: 'Unresolved receipts', value: summary.unresolvedReceiptCount },
+              ]}
+            />
+          </div>
+        </details>
       </Card>
 
+      {/* 2 — what still needs attention */}
+      <Card label="Needs attention">
+        {staleness.stale && (
+          <Notice tone="warn" title="Records changed since this week was reviewed">
+            {staleness.changedCount} record{staleness.changedCount === 1 ? '' : 's'} in this week{' '}
+            {staleness.changedCount === 1 ? 'was' : 'were'} edited after it was marked reviewed. Reopen
+            and re-review, or mark it reviewed again to refresh the timestamp.
+          </Notice>
+        )}
+        <p className="small faint">
+          Record-completeness check — not a tax-compliance score.
+          {issues.length > 0 &&
+            ` ${warnCount} to resolve${infoCount > 0 ? `, ${infoCount} for information` : ''}.`}
+        </p>
+        <IssueList issues={issues} />
+      </Card>
+
+      {/* 3 — what action completes review */}
       <Card label="Weekly close">
         {reviewState === 'reviewed' ? (
           <>
             <p className="small muted">
               Marked reviewed {closure?.reviewedAt?.slice(0, 16).replace('T', ' ')}. A reviewed week can
-              be reopened.
+              be reopened at any time — closing it never freezes the records.
             </p>
-            <ConfirmButton
-              variant="default"
-              block
-              confirmLabel="Tap again to reopen"
-              onConfirm={() => void mutate(() => reopenWeek(wk), { success: 'Week reopened' })}
-            >
-              Reopen week
-            </ConfirmButton>
+            <div className="btn-row">
+              {staleness.stale && (
+                <Button
+                  variant="primary"
+                  onClick={() => void mutate(() => markWeekReviewed(wk), { success: 'Review refreshed' })}
+                >
+                  Mark reviewed again
+                </Button>
+              )}
+              <ConfirmButton
+                variant="default"
+                block={!staleness.stale}
+                confirmLabel="Tap again to reopen"
+                onConfirm={() => void mutate(() => reopenWeek(wk), { success: 'Week reopened' })}
+              >
+                Reopen week
+              </ConfirmButton>
+            </div>
           </>
         ) : (
           <>
             <p className="small muted">
               {temporallyComplete
-                ? 'This week has ended. Review the records below, then mark it reviewed. Nothing is marked reviewed automatically.'
+                ? 'This week has ended. Review the items above, then mark it reviewed. Nothing is marked reviewed automatically.'
                 : 'This week has not finished yet. You can still mark it reviewed early if you are done recording.'}
             </p>
             <Button
@@ -172,11 +221,6 @@ export function WeekScreen({ weekKey }: { weekKey: string | null }) {
             </Button>
           </>
         )}
-      </Card>
-
-      <Card label="Completeness review">
-        <p className="small faint">Record-completeness check — not a tax-compliance score.</p>
-        <IssueList issues={issues} />
       </Card>
 
       <Card label={`Shifts (${weekShifts.length})`}>

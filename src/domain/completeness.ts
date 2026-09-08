@@ -5,7 +5,7 @@
  * or internally inconsistent so the user can decide what to do.
  */
 
-import type { Expense, MileageRate, Receipt, Shift, WeekKey } from './types';
+import type { Expense, MileageRate, Receipt, Shift, WeekKey, WeeklyClosure } from './types';
 import { mondayOf } from './dates';
 import { computeMileage, checkContinuity } from './mileage';
 import { effectiveRate } from './mileageRates';
@@ -141,4 +141,38 @@ export function weekCompleteness(
   }
 
   return issues;
+}
+
+/**
+ * Whether a week's records have changed since it was marked reviewed.
+ *
+ * A closed week is not frozen — the user can still edit records in it. When they
+ * do, the earlier "reviewed" state is stale and should be shown as such rather
+ * than silently implying the review still covers the current data.
+ */
+export interface ReviewStaleness {
+  stale: boolean;
+  changedCount: number;
+}
+
+export function weekChangedSinceReview(
+  closure: WeeklyClosure | undefined | null,
+  allShifts: Shift[],
+  allExpenses: Expense[],
+  allReceipts: Receipt[],
+): ReviewStaleness {
+  if (!closure) return { stale: false, changedCount: 0 };
+  const since = closure.reviewedAt;
+  const weekKey = closure.weekKey;
+  let changedCount = 0;
+  for (const s of allShifts) {
+    if ((s.weekKey === weekKey || mondayOf(s.date) === weekKey) && s.updatedAt > since) changedCount++;
+  }
+  for (const e of allExpenses) {
+    if (mondayOf(e.date) === weekKey && e.updatedAt > since) changedCount++;
+  }
+  for (const r of allReceipts) {
+    if (r.date !== null && mondayOf(r.date) === weekKey && r.updatedAt > since) changedCount++;
+  }
+  return { stale: changedCount > 0, changedCount };
 }
