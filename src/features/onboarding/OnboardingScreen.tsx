@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useRouter } from '../../app/router';
+import { useRouter, Link } from '../../app/router';
 import { useLedgerContext } from '../../state/store';
 import { createVehicle } from '../../db/repositories';
 import { TextInput } from '../../components/forms';
@@ -58,6 +58,17 @@ export function OnboardingScreen() {
             {busy ? 'Saving…' : 'Save & continue'}
           </Button>
         </form>
+      </Card>
+
+      <Card label="Already used Dash Ledger?">
+        <p className="small muted">
+          If you have records in an earlier version — the original single-file app, an earlier build
+          of this one, or the Grok build — bring them in instead of starting over. Your old data is
+          only read, never changed.
+        </p>
+        <Link to="/vault?s=recovery" className="link-btn">
+          Import my existing records →
+        </Link>
       </Card>
 
       <Card label="What you can track">

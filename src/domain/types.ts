@@ -162,6 +162,14 @@ export interface Meta {
   lastBackupGeneratedAt: Iso | null;
   lastArchiveConfirmedAt: Iso | null;
   restoredAt: Iso | null;
+  /**
+   * When persistent storage was requested. Set once, best-effort, so the app
+   * never re-prompts. Records the attempt, not the outcome — the live grant
+   * state comes from `navigator.storage.persisted()`.
+   */
+  persistRequestedAt: Iso | null;
+  /** When a legacy import last wrote to this database. */
+  lastImportAt: Iso | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {

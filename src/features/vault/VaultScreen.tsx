@@ -7,10 +7,12 @@ import { BackupPanel } from './BackupPanel';
 import { StoragePanel } from './StoragePanel';
 import { VehiclesPanel } from './VehiclesPanel';
 import { RatesPanel } from './RatesPanel';
+import { RecoveryPanel } from './RecoveryPanel';
 
 const SECTIONS = [
   { id: 'year', label: 'Year' },
   { id: 'backup', label: 'Backup' },
+  { id: 'recovery', label: 'Recovery' },
   { id: 'storage', label: 'Storage' },
   { id: 'vehicles', label: 'Vehicles' },
   { id: 'rates', label: 'Rates' },
@@ -25,7 +27,7 @@ export function VaultScreen({ section, year }: { section: string | null; year: s
       <div className="screen-head">
         <div>
           <h1>Tax / Vault</h1>
-          <p>Yearly reports, backups, storage health, vehicles &amp; mileage rates.</p>
+          <p>Yearly reports, backups, recovery, storage health, vehicles &amp; mileage rates.</p>
         </div>
       </div>
 
@@ -47,6 +49,7 @@ export function VaultScreen({ section, year }: { section: string | null; year: s
       {!active && <Overview />}
       {active === 'year' && <YearReport year={year} />}
       {active === 'backup' && <BackupPanel />}
+      {active === 'recovery' && <RecoveryPanel />}
       {active === 'storage' && <StoragePanel />}
       {active === 'vehicles' && <VehiclesPanel />}
       {active === 'rates' && <RatesPanel />}
@@ -92,6 +95,13 @@ function Overview() {
             <span className="row-link__main">
               <span className="row-link__title">Backup, restore &amp; exports</span>
               <span className="row-link__sub">Full backup · ledger JSON · CSV · restore</span>
+            </span>
+            <span aria-hidden>›</span>
+          </Link>
+          <Link to="/vault?s=recovery" className="row-link">
+            <span className="row-link__main">
+              <span className="row-link__title">Recovery &amp; legacy import</span>
+              <span className="row-link__sub">Bring in records from an earlier Dash Ledger version</span>
             </span>
             <span aria-hidden>›</span>
           </Link>

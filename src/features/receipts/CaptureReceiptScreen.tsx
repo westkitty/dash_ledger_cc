@@ -70,7 +70,14 @@ export function CaptureReceiptScreen() {
       };
 
       const receipt = await mutate(
-        () => createReceipt({ meta, image: processed.image, thumbnail: processed.thumbnail }),
+        () =>
+          createReceipt({
+            meta,
+            image: processed.image,
+            thumbnail: processed.thumbnail,
+            // Keep the untouched source so a storage failure cannot lose the photo.
+            originalImage: file,
+          }),
         { success: processed.error ? 'Receipt saved (image not optimised)' : 'Receipt saved' },
       );
       if (previewUrl) URL.revokeObjectURL(previewUrl);

@@ -22,6 +22,7 @@ import { mondayOf, todayLocalDate } from '../domain/dates';
 import { seededMileageRates } from '../domain/mileageRates';
 import { recordClassification, normaliseMerchant } from '../domain/merchantMemory';
 import { logDiagnostic } from '../services/diagnosticsLog';
+import { requestPersistentStorage } from '../services/storageHealth';
 
 export function newId(): string {
   try {
@@ -72,6 +73,8 @@ export async function getMeta(): Promise<Meta> {
     lastBackupGeneratedAt: null,
     lastArchiveConfirmedAt: null,
     restoredAt: null,
+    persistRequestedAt: null,
+    lastImportAt: null,
   };
   if (!row) return base;
   return { ...base, ...(row.value as Partial<Meta>) };
@@ -107,6 +110,53 @@ export async function ensureSeed(): Promise<void> {
   if (!settings) {
     await db.kv.put({ key: KV_KEYS.settings, value: { ...DEFAULT_SETTINGS } });
   }
+}
+
+/**
+ * Ask the browser once to make this origin's storage persistent, so the ledger
+ * is not evicted under storage pressure.
+ *
+ * Best effort in every direction: feature-detected, never fatal, and asked
+ * exactly once — the attempt is recorded whether or not it was granted, so the
+ * user is never re-prompted. The honest live state is read separately from
+ * `navigator.storage.persisted()` in Vault -> Storage.
+ */
+export async function ensurePersistentStorageRequested(): Promise<void> {
+  try {
+    const meta = await getMeta();
+    if (meta.persistRequestedAt) return;
+    let granted: boolean | null = null;
+    try {
+      granted = await requestPersistentStorage();
+    } catch {
+      granted = null;
+    }
+    await saveMeta({ persistRequestedAt: nowIso() });
+    logDiagnostic(
+      'storage',
+      granted === true
+        ? 'Persistent storage granted for this origin.'
+        : granted === false
+          ? 'Persistent storage was not granted. Records are still saved locally, but the browser may evict them under storage pressure.'
+          : 'Persistent storage could not be requested in this browser.',
+    );
+  } catch (err) {
+    // Storage permission must never be able to block startup.
+    logDiagnostic('storage', 'Persistent-storage request failed; continuing without it.', err);
+  }
+}
+
+/** Total authoritative records currently held. Drives the pre-restore safety gate. */
+export async function countCanonicalRecords(): Promise<number> {
+  const db = await openDB();
+  const [vehicles, shifts, expenses, receipts, weeklyClosures] = await Promise.all([
+    db.vehicles.count(),
+    db.shifts.count(),
+    db.expenses.count(),
+    db.receipts.count(),
+    db.weeklyClosures.count(),
+  ]);
+  return vehicles + shifts + expenses + receipts + weeklyClosures;
 }
 
 // ---------------------------------------------------------------------------
@@ -462,8 +512,39 @@ export async function getReceiptBlob(receiptId: string): Promise<ReceiptBlob | u
 
 export interface CreateReceiptInput {
   meta: Omit<Receipt, 'id' | 'createdAt' | 'updatedAt'>;
+  /** The image to store — usually the optimised one. */
   image: Blob;
   thumbnail: Blob | null;
+  /**
+   * The untouched source bytes, when they differ from `image`.
+   *
+   * Optimisation is best effort, and so is storing its output: if writing the
+   * processed image fails (a quota trip, a rejected blob), the receipt is saved
+   * once more with the original instead. A receipt is worth more than a smaller
+   * receipt, and losing the photo is not an acceptable outcome of trying to
+   * shrink it.
+   */
+  originalImage?: Blob | null;
+}
+
+async function writeReceipt(
+  db: DashLedgerDB,
+  receipt: Receipt,
+  image: Blob,
+  thumbnail: Blob | null,
+  now: string,
+): Promise<void> {
+  await db.transaction('rw', db.receipts, db.receiptBlobs, db.kv, async () => {
+    await db.receipts.put(receipt);
+    await db.receiptBlobs.put({
+      receiptId: receipt.id,
+      image,
+      thumbnail,
+      mimeType: receipt.mimeType,
+      byteCount: receipt.byteCount,
+    });
+    await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: now } });
+  });
 }
 
 export async function createReceipt(input: CreateReceiptInput): Promise<Receipt> {
@@ -471,18 +552,33 @@ export async function createReceipt(input: CreateReceiptInput): Promise<Receipt>
   const now = nowIso();
   const id = newId();
   const receipt: Receipt = { ...input.meta, id, createdAt: now, updatedAt: now };
-  await db.transaction('rw', db.receipts, db.receiptBlobs, db.kv, async () => {
-    await db.receipts.put(receipt);
-    await db.receiptBlobs.put({
-      receiptId: id,
-      image: input.image,
-      thumbnail: input.thumbnail,
-      mimeType: input.meta.mimeType,
-      byteCount: input.meta.byteCount,
-    });
-    await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: now } });
-  });
-  return receipt;
+
+  try {
+    await writeReceipt(db, receipt, input.image, input.thumbnail, now);
+    return receipt;
+  } catch (err) {
+    const original = input.originalImage;
+    const canRetry = original instanceof Blob && original !== input.image && original.size > 0;
+    if (!canRetry) throw err;
+
+    logDiagnostic(
+      'receipt',
+      'Storing the optimised receipt image failed; retrying once with the original bytes.',
+      err,
+    );
+    // Drop the thumbnail on the retry: it belongs to the image we could not
+    // store, and it is not worth failing the receipt a second time for.
+    const fallback: Receipt = {
+      ...receipt,
+      mimeType: original.type || receipt.mimeType,
+      byteCount: original.size,
+      imageProcessingError:
+        receipt.imageProcessingError ??
+        'The optimised image could not be stored, so the original photo was saved instead.',
+    };
+    await writeReceipt(db, fallback, original, null, now);
+    return fallback;
+  }
 }
 
 export type ReceiptEditInput = Partial<
@@ -604,6 +700,7 @@ export interface LedgerSnapshot {
 export async function loadSnapshot(): Promise<LedgerSnapshot> {
   await openDB();
   await ensureSeed();
+  await ensurePersistentStorageRequested();
   const [
     vehicles,
     shifts,

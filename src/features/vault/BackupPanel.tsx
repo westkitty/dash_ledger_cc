@@ -12,12 +12,22 @@ import { validateBackup, restoreBackup, type ValidationResult } from '../../serv
 import { shiftsToCsv, expensesToCsv, mileageRatesToCsv } from '../../services/csv';
 import { deliverFile, timestampSlug } from '../../services/share';
 import { confirmArchive, markBackupGenerated } from '../../db/repositories';
+import {
+  makeExportedAcknowledgement,
+  makeNoExistingDataAcknowledgement,
+  type SafetyBackupAcknowledgement,
+} from '../../services/safetyGate';
+import { Link } from '../../app/router';
 
 export function BackupPanel() {
   const snap = useLedger();
   const { mutate, pushToast, reload } = useLedgerContext();
-  const { shifts, expenses, mileageRates, settings } = snap;
+  const { shifts, expenses, mileageRates, settings, receipts, vehicles, weeklyClosures } = snap;
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // Records the restore would destroy. Drives whether a safety backup is needed.
+  const existingRecords =
+    vehicles.length + shifts.length + expenses.length + receipts.length + weeklyClosures.length;
 
   const [busy, setBusy] = useState<string | null>(null);
   const [restoreState, setRestoreState] = useState<{
@@ -26,6 +36,7 @@ export function BackupPanel() {
     filename: string;
   } | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [safety, setSafety] = useState<SafetyBackupAcknowledgement | null>(null);
 
   async function run(kind: string, fn: () => Promise<void>) {
     setBusy(kind);
@@ -91,6 +102,7 @@ export function BackupPanel() {
       const text = await file.text();
       const raw = JSON.parse(text);
       const validation = validateBackup(raw);
+      setSafety(null);
       setRestoreState({ raw, validation, filename: file.name });
     } catch (err) {
       setRestoreState(null);
@@ -98,16 +110,39 @@ export function BackupPanel() {
     }
   }
 
+  /**
+   * Step 1 of the restore. Exports the CURRENT ledger so a bad restore is
+   * recoverable, and only then unlocks the destructive step.
+   */
+  const saveSafetyBackup = () =>
+    run('safety', async () => {
+      if (existingRecords === 0) {
+        setSafety(makeNoExistingDataAcknowledgement());
+        pushToast('Ledger is empty — there is nothing to back up first.');
+        return;
+      }
+      const src = await readBackupSource();
+      const backup = await buildFullBackup(src);
+      const json = serializeBackup(backup);
+      const filename = `dash-ledger-safety-${timestampSlug()}.json`;
+      await deliverFile(filename, json, 'application/json');
+      await markBackupGenerated();
+      await reload();
+      setSafety(makeExportedAcknowledgement(filename, json.length, backup.format));
+      pushToast('Safety backup saved. You can now replace your data.');
+    });
+
   async function doRestore() {
     if (!restoreState?.validation.ok) return;
     setRestoring(true);
     try {
-      const result = await restoreBackup(restoreState.raw);
+      const result = await restoreBackup(restoreState.raw, { safetyBackup: safety });
       if (!result.ok) {
         pushToast(result.error ?? 'Restore failed', 'danger');
       } else {
         pushToast('Restore complete. Data reloaded.');
         setRestoreState(null);
+        setSafety(null);
         await reload();
       }
     } finally {
@@ -167,7 +202,8 @@ export function BackupPanel() {
       <Card label="Restore from backup">
         <p className="small muted">
           Restore validates the entire file first, then replaces all data in a single transaction. A
-          failed restore leaves your current database untouched.
+          failed restore leaves your current database untouched. Because it is destructive, it runs
+          in two steps: save a safety backup, then replace.
         </p>
         <input
           ref={fileRef}
@@ -194,14 +230,48 @@ export function BackupPanel() {
                     : 'No receipt images in this file.'}{' '}
                   Restoring replaces everything currently in the app.
                 </Notice>
-                <ConfirmButton
-                  block
-                  confirmLabel="Tap again to replace ALL current data"
-                  onConfirm={doRestore}
-                >
-                  {restoring ? 'Restoring…' : 'Restore this backup'}
-                </ConfirmButton>
+
+                <div className="stack" style={{ marginTop: 10 }}>
+                  <div>
+                    <Button
+                      block
+                      onClick={saveSafetyBackup}
+                      disabled={busy === 'safety' || safety !== null}
+                    >
+                      {safety
+                        ? '✓ 1 · Safety backup saved'
+                        : busy === 'safety'
+                          ? 'Saving…'
+                          : existingRecords === 0
+                            ? '1 · Confirm there is nothing to back up'
+                            : '1 · Save a safety backup first'}
+                    </Button>
+                    <p className="small faint" style={{ marginTop: 6 }}>
+                      {existingRecords === 0
+                        ? 'Your ledger is currently empty, so there is nothing a restore could destroy.'
+                        : `Exports your current ${existingRecords} record${existingRecords === 1 ? '' : 's'} so this restore is reversible. Required before step 2.`}
+                    </p>
+                  </div>
+
+                  <ConfirmButton
+                    block
+                    disabled={!safety}
+                    confirmLabel="Tap again to replace ALL current data"
+                    onConfirm={doRestore}
+                  >
+                    {restoring ? 'Restoring…' : '2 · Replace everything with this backup'}
+                  </ConfirmButton>
+                </div>
               </>
+            ) : restoreState.validation.importable ? (
+              <Notice tone="warn" title="This is an earlier Dash Ledger backup">
+                <p className="small" style={{ margin: '6px 0' }}>
+                  {restoreState.validation.errors[0]}
+                </p>
+                <Link to="/vault?s=recovery" className="link-btn">
+                  Open Recovery &amp; import →
+                </Link>
+              </Notice>
             ) : (
               <Notice tone="danger" title="Backup failed validation">
                 <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>

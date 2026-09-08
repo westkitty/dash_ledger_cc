@@ -8,6 +8,8 @@ export type DiagCategory =
   | 'db'
   | 'migration'
   | 'restore'
+  | 'import'
+  | 'receipt'
   | 'storage'
   | 'image'
   | 'backup'

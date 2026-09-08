@@ -196,19 +196,26 @@ export function ConfirmButton({
   confirmLabel = 'Tap again to confirm',
   variant = 'danger',
   block,
+  disabled,
 }: {
   onConfirm: () => void;
   children: ReactNode;
   confirmLabel?: string;
   variant?: 'danger' | 'default';
   block?: boolean;
+  /** Used to gate destructive actions behind a prerequisite, e.g. a safety backup. */
+  disabled?: boolean;
 }) {
   const [armed, setArmed] = useState(false);
+  // Losing the prerequisite must also disarm the button, never leave it primed.
+  if (disabled && armed) setArmed(false);
   return (
     <button
       type="button"
       className={`btn ${variant === 'danger' ? 'btn--danger' : ''} ${block ? 'btn--block' : ''}`}
+      disabled={disabled}
       onClick={() => {
+        if (disabled) return;
         if (armed) {
           onConfirm();
           setArmed(false);

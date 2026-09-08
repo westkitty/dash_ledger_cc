@@ -22,6 +22,8 @@ function source(over: Partial<BackupSource> = {}): BackupSource {
       lastBackupGeneratedAt: null,
       lastArchiveConfirmedAt: null,
       restoredAt: null,
+      persistRequestedAt: null,
+      lastImportAt: null,
     },
     vehicles: [makeVehicle({ id: 'veh-1' })],
     shifts: [makeShift({ id: 'shift-1', vehicleId: 'veh-1' })],

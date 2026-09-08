@@ -7,6 +7,7 @@
  */
 
 import Dexie, { type Table } from 'dexie';
+import type { ImportReportRecord } from '../services/import/types';
 import type {
   Vehicle,
   Shift,
@@ -23,7 +24,28 @@ import { SCHEMA_VERSION } from '../domain/types';
 import { logDiagnostic } from '../services/diagnosticsLog';
 
 export const APP_VERSION = '1.0.0';
-export const DB_NAME = 'dash-ledger';
+
+/**
+ * Canonical successor database.
+ *
+ * This name is deliberately distinct from every database written by an earlier
+ * Dash Ledger lineage. The original single-file app and the first `dash_ledger_cc`
+ * build both used `dash-ledger`; opening that database here would let Dexie bump
+ * its version and adopt rows whose field names mean something different
+ * (`appEarnings` dollars vs `appEarningsCents`), which silently misread real
+ * money. Legacy databases are IMPORT SOURCES only — see `services/import/`.
+ *
+ * Never change this to a legacy name, and never "upgrade into" one.
+ */
+export const DB_NAME = 'dash-ledger-canonical-v2';
+
+/**
+ * Databases written by earlier Dash Ledger versions. These are read-only
+ * recovery sources. The app never opens them as its own store, never upgrades
+ * them, and never deletes them.
+ */
+export const LEGACY_DB_NAMES = ['dash-ledger', 'dash-ledger-grok'] as const;
+export type LegacyDbName = (typeof LEGACY_DB_NAMES)[number];
 
 export interface KvRow<T = unknown> {
   key: string;
@@ -40,6 +62,8 @@ export class DashLedgerDB extends Dexie {
   mileageRates!: Table<MileageRate, string>;
   merchantMemory!: Table<MerchantMemoryEntry, string>;
   kv!: Table<KvRow, string>;
+  /** Audit trail for legacy imports, including unresolved conflicts. */
+  importReports!: Table<ImportReportRecord, string>;
 
   constructor(name: string = DB_NAME) {
     super(name);
@@ -53,6 +77,7 @@ export class DashLedgerDB extends Dexie {
       mileageRates: 'id, startDate',
       merchantMemory: 'merchantKey, updatedAt',
       kv: 'key',
+      importReports: 'id, createdAt',
     });
 
     // Future migrations:

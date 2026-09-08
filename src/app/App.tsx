@@ -94,17 +94,27 @@ function DbError({ message, onRetry }: { message: string; onRetry: () => void })
 
 export function App() {
   const { status, error, snapshot, reload } = useLedgerContext();
-  const { path, navigate } = useRouter();
+  const { path, query, navigate } = useRouter();
 
   const hasVehicle = !!snapshot && snapshot.vehicles.some((v) => !v.archived);
   const activeShift = snapshot?.activeShift;
 
   // First-run: force onboarding until at least one vehicle exists.
+  //
+  // Recovery is exempt. Someone whose records live in an earlier Dash Ledger
+  // version arrives here with an empty canonical ledger and no vehicle, and the
+  // import is exactly what will create their vehicles — sending them to
+  // onboarding first would make them invent one before they could get their own
+  // data back.
+  const isRecoveryRoute = path === '/vault' && query.get('s') === 'recovery';
+
   useEffect(() => {
     if (status !== 'ready') return;
-    if (!hasVehicle && path !== '/onboarding') navigate('/onboarding', { replace: true });
+    if (!hasVehicle && path !== '/onboarding' && !isRecoveryRoute) {
+      navigate('/onboarding', { replace: true });
+    }
     if (hasVehicle && path === '/onboarding') navigate('/', { replace: true });
-  }, [status, hasVehicle, path, navigate]);
+  }, [status, hasVehicle, path, isRecoveryRoute, navigate]);
 
   // Reflect active-dash mode on <body> so the whole shell shifts visually.
   useEffect(() => {

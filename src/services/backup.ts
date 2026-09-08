@@ -1,9 +1,13 @@
 /**
  * Full + ledger-only backup serialisation.
  *
- * Full backup ("dash-ledger-backup") embeds every receipt image as a data URL so
- * the file is self-sufficient. Ledger-only ("dash-ledger-ledger-only") keeps all
- * receipt metadata but omits image bytes and is explicitly not image-restorable.
+ * Full backup ("dash-ledger-backup-v2") embeds every receipt image as a data URL
+ * so the file is self-sufficient. Ledger-only ("dash-ledger-ledger-only-v2")
+ * keeps all receipt metadata but omits image bytes and is explicitly not
+ * image-restorable.
+ *
+ * The v1 markers used by earlier lineages are never written here — see
+ * `services/backupFormats.ts` for why they cannot be trusted to identify a body.
  */
 
 import type {
@@ -22,9 +26,12 @@ import { APP_VERSION } from '../db/db';
 import { getDB } from '../db/db';
 import { getReceiptBlob } from '../db/repositories';
 import { blobToDataUrl } from './receiptImages';
+import { BACKUP_FORMAT_VERSION, FULL_FORMAT, LEDGER_ONLY_FORMAT } from './backupFormats';
 
-export const FULL_FORMAT = 'dash-ledger-backup';
-export const LEDGER_ONLY_FORMAT = 'dash-ledger-ledger-only';
+export { BACKUP_FORMAT_VERSION, FULL_FORMAT, LEDGER_ONLY_FORMAT };
+
+/** Identifies which build produced a file, for support and future migrations. */
+export const BACKUP_PRODUCER = `dash-ledger-canonical@${APP_VERSION}`;
 
 export interface BackupImage {
   dataUrl: string;
@@ -48,8 +55,11 @@ export interface BackupCounts {
 
 export interface FullBackup {
   format: typeof FULL_FORMAT;
+  /** Envelope discriminator. Separates this body from the ambiguous v1 marker. */
+  formatVersion: typeof BACKUP_FORMAT_VERSION;
   schemaVersion: number;
   appVersion: string;
+  producer: string;
   generatedAt: string;
   counts: BackupCounts;
   settings: Settings;
@@ -116,8 +126,10 @@ export async function buildFullBackup(
   }
   return {
     format: FULL_FORMAT,
+    formatVersion: BACKUP_FORMAT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     appVersion: APP_VERSION,
+    producer: BACKUP_PRODUCER,
     generatedAt: new Date().toISOString(),
     counts: counts(src),
     settings: src.settings,
@@ -135,8 +147,10 @@ export async function buildFullBackup(
 export function buildLedgerOnlyBackup(src: BackupSource): LedgerOnlyBackup {
   return {
     format: LEDGER_ONLY_FORMAT,
+    formatVersion: BACKUP_FORMAT_VERSION,
     schemaVersion: SCHEMA_VERSION,
     appVersion: APP_VERSION,
+    producer: BACKUP_PRODUCER,
     generatedAt: new Date().toISOString(),
     imagesOmitted: true,
     counts: counts(src),

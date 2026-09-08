@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { getDB } from '../db/db';
 import { restoreBackup } from '../services/restore';
-import { buildLedgerOnlyBackup, type BackupSource } from '../services/backup';
+import { buildLedgerOnlyBackup, LEDGER_ONLY_FORMAT, type BackupSource } from '../services/backup';
+import { makeExportedAcknowledgement } from '../services/safetyGate';
 import { seededMileageRates } from '../domain/mileageRates';
 import { DEFAULT_SETTINGS } from '../domain/types';
 import { makeShift, makeExpense, makeVehicle } from './factories';
@@ -17,6 +18,8 @@ function source(over: Partial<BackupSource> = {}): BackupSource {
       lastBackupGeneratedAt: null,
       lastArchiveConfirmedAt: null,
       restoredAt: null,
+      persistRequestedAt: null,
+      lastImportAt: null,
     },
     vehicles: [makeVehicle({ id: 'veh-restored', label: 'Restored Car' })],
     shifts: [makeShift({ id: 'shift-restored', vehicleId: 'veh-restored' })],
@@ -28,6 +31,9 @@ function source(over: Partial<BackupSource> = {}): BackupSource {
     ...over,
   };
 }
+
+/** The ledger seeded below is non-empty, so every restore needs a real safety backup. */
+const SAFETY = () => makeExportedAcknowledgement('safety-backup.json', 2048, LEDGER_ONLY_FORMAT);
 
 describe('atomic restore', () => {
   beforeEach(async () => {
@@ -51,7 +57,7 @@ describe('atomic restore', () => {
 
   it('replaces all data when the backup is valid', async () => {
     const backup = JSON.parse(JSON.stringify(buildLedgerOnlyBackup(source())));
-    const result = await restoreBackup(backup);
+    const result = await restoreBackup(backup, { safetyBackup: SAFETY() });
     expect(result.ok).toBe(true);
 
     const db = getDB();
@@ -69,7 +75,10 @@ describe('atomic restore', () => {
 
   it('does not partially restore a malformed backup', async () => {
     const before = await getDB().vehicles.toArray();
-    const result = await restoreBackup({ format: 'dash-ledger-backup', schemaVersion: 999 });
+    const result = await restoreBackup(
+      { format: LEDGER_ONLY_FORMAT, schemaVersion: 999 },
+      { safetyBackup: SAFETY() },
+    );
     expect(result.ok).toBe(false);
     const after = await getDB().vehicles.toArray();
     expect(after).toEqual(before); // untouched
@@ -82,7 +91,7 @@ describe('atomic restore', () => {
     // Force a failure after vehicles.clear()/bulkPut have been queued in the txn.
     (db.shifts as any).bulkPut = () => Promise.reject(new Error('simulated write failure'));
     try {
-      const result = await restoreBackup(backup);
+      const result = await restoreBackup(backup, { safetyBackup: SAFETY() });
       expect(result.ok).toBe(false);
     } finally {
       (db.shifts as any).bulkPut = original;

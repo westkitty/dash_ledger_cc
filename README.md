@@ -48,9 +48,16 @@ works offline after the first load and installs as a PWA.
 - **Exports** — full JSON backup (receipt images embedded as data URLs),
   ledger-only JSON (metadata, no image bytes), shifts CSV, expenses CSV, mileage
   rates CSV, and a standalone printable **Tax Binder** HTML file per year.
-- **Backups** — validated, transaction-safe restore. Backup-health status
-  (Safe / Due / Overdue) that distinguishes "generated a file" from "confirmed an
-  external archive".
+- **Backups** — validated, transaction-safe restore behind a required
+  pre-restore safety-backup step. Backup-health status (Safe / Due / Overdue)
+  that distinguishes "generated a file" from "confirmed an external archive".
+- **Recovery / legacy import** — records from the original single-file Dash
+  Ledger, from earlier builds of this app, and from the Grok build can be
+  imported. Dollar amounts are converted to integer cents exactly once, at the
+  import boundary. A record carrying two contradictory amounts is reported as a
+  conflict and left unset rather than guessed at; a missing amount stays missing
+  and never becomes `$0.00`. Legacy databases on the device are only ever read —
+  never upgraded, cleared or deleted.
 - **Diagnostics** — environment info, a bounded in-session log, and a built-in
   self-test that runs on pure functions plus an isolated temporary IndexedDB.
 
@@ -74,6 +81,7 @@ Layer boundaries are deliberate:
 | Domain | `src/domain/` | Pure calculations: dates, money, duration, mileage, mileage rates, expense classes, aggregation, completeness, merchant memory, backup health. No React, no IndexedDB. |
 | DB | `src/db/` | Dexie schema + versioning (`db.ts`) and the repository layer (`repositories.ts`). The only place that touches IndexedDB. Enforces invariants like single-active-dash inside transactions. |
 | Services | `src/services/` | CSV, backup, restore, Tax Binder, receipt image processing, storage health, file sharing, diagnostics log, self-test. |
+| Import | `src/services/import/` | The legacy compatibility boundary: detection, normalisation, conflict reporting, read-only legacy-database access. Everything the app knows about earlier data representations lives here and terminates here. |
 | State | `src/state/store.tsx` | One React context that loads a full snapshot and reloads after mutations; toast + theme plumbing. |
 | Features | `src/features/*` | Screen components per area (dash, week, expenses, receipts, vault, settings, diagnostics, onboarding). |
 | App shell | `src/app/` | Router, route table, error boundaries, bottom nav, update banner. |
@@ -91,8 +99,9 @@ src/
   domain/        types, dates, money, duration, mileage, mileageRates,
                  expenses, merchantMemory, aggregation, completeness, backupHealth
   db/             db.ts (Dexie schema v1), repositories.ts
-  services/      csv, backup, restore, taxBinder, receiptImages,
-                 storageHealth, share, diagnosticsLog, selfTest
+  services/      csv, backup, backupFormats, restore, safetyGate, taxBinder,
+                 receiptImages, storageHealth, share, diagnosticsLog, selfTest
+    import/      detect, normalize, legacyMoney, legacyDb, apply (legacy boundary)
   state/          store.tsx
   features/       dash/ week/ expenses/ receipts/ vault/ settings/ diagnostics/ onboarding/
   styles/        tokens.css, global.css
@@ -100,6 +109,35 @@ src/
 scripts/         gen-icons.mjs (dependency-free PNG icon generator)
 public/icons/    generated PWA icons + favicon
 ```
+
+### Storage identity and backup formats
+
+The canonical database is **`dash-ledger-canonical-v2`**.
+
+It is deliberately not `dash-ledger`, which was used by *both* the original
+single-file app and the first build of this one. Those two wrote incompatible
+record bodies under that one name — dollars (`appEarnings: 96.5`) versus integer
+cents (`appEarningsCents: 9650`) — so opening it here would let Dexie adopt rows
+whose fields mean something different, and a real `$96.50` dash would render as
+`$0.00`. `src/tests/import.test.ts` keeps that exact record as a permanent
+regression fixture.
+
+Earlier databases (`dash-ledger`, `dash-ledger-grok`) are treated as read-only
+**recovery sources**: Vault → Recovery can find, summarise and import them, and
+never upgrades, clears or deletes them.
+
+Backups follow the same rule. The canonical formats are
+`dash-ledger-backup-v2` / `dash-ledger-ledger-only-v2`, each carrying an explicit
+`formatVersion` and `producer`. The ambiguous v1 marker `dash-ledger-backup` is
+read (through the import adapters) but never written again.
+
+| Source | Marker | How it is read |
+|---|---|---|
+| This build | `dash-ledger-backup-v2` | restored directly |
+| Original app | `dash-ledger-backup` (dollar body) | Vault → Recovery import |
+| Earlier cc build | `dash-ledger-backup` (cents body) | Vault → Recovery import |
+| Grok build | `dash-ledger-grok-backup` | Vault → Recovery import |
+| Hybrid A→B database | mixed bodies | per-record resolution; contradictions reported, never guessed |
 
 ---
 

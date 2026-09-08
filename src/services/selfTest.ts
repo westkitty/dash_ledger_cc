@@ -127,6 +127,8 @@ export async function runSelfTest(): Promise<SelfTestReport> {
         lastBackupGeneratedAt: null,
         lastArchiveConfirmedAt: null,
         restoredAt: null,
+        persistRequestedAt: null,
+        lastImportAt: null,
       },
       vehicles: [
         { id: 'v1', label: 'Test Car', archived: false, createdAt: 'x', updatedAt: 'x' },

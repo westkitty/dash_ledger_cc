@@ -4,21 +4,44 @@
  * Validation runs over the whole payload before anything destructive happens.
  * Restore replaces every authoritative table inside ONE Dexie transaction, so a
  * failure leaves the previous database completely intact.
+ *
+ * Restore only accepts CANONICAL backups. Files written by earlier lineages go
+ * through `services/import/`, which knows how to read them without misreading
+ * their money. `validateBackup` names that route explicitly rather than just
+ * rejecting the file.
+ *
+ * Replacing the authoritative ledger also requires a safety-backup
+ * acknowledgement — see `services/safetyGate.ts`.
  */
 
 import { getDB } from '../db/db';
+import { countCanonicalRecords } from '../db/repositories';
 import { SCHEMA_VERSION, type Meta, type Settings } from '../domain/types';
 import { isValidLocalDate } from '../domain/dates';
 import { isValidLocalTime } from '../domain/duration';
 import { dataUrlToBlob } from './receiptImages';
 import { logDiagnostic } from './diagnosticsLog';
-import { FULL_FORMAT, LEDGER_ONLY_FORMAT, type BackupReceipt } from './backup';
+import {
+  BACKUP_FORMAT_VERSION,
+  FULL_FORMAT,
+  GROK_V1_FORMAT,
+  LEDGER_ONLY_FORMAT,
+  LEGACY_V1_FORMATS,
+} from './backupFormats';
+import { checkSafetyGate, type SafetyBackupAcknowledgement } from './safetyGate';
+import type { BackupReceipt } from './backup';
 
 export interface ValidationResult {
   ok: boolean;
   errors: string[];
   format: string | null;
   hasImages: boolean;
+  /**
+   * True when the file is a recognised EARLIER Dash Ledger format. It is not a
+   * canonical backup and must not be restored directly, but Vault -> Recovery
+   * can import it.
+   */
+  importable?: boolean;
 }
 
 const KNOWN_FORMATS = new Set([FULL_FORMAT, LEDGER_ONLY_FORMAT]);
@@ -41,7 +64,25 @@ export function validateBackup(raw: unknown, supportedSchema = SCHEMA_VERSION): 
 
   const format = typeof raw.format === 'string' ? raw.format : null;
   if (!format || !KNOWN_FORMATS.has(format)) {
+    // Point a legacy file at the importer instead of just refusing it.
+    if (format && (LEGACY_V1_FORMATS.includes(format) || format === GROK_V1_FORMAT)) {
+      return {
+        ok: false,
+        errors: [
+          `"${format}" is an earlier Dash Ledger format, not a canonical backup. Its records use a different money representation, so restoring it directly could misread amounts. Use Vault -> Recovery to import it instead.`,
+        ],
+        format,
+        hasImages: false,
+        importable: true,
+      };
+    }
     errors.push(`Unrecognised backup format marker: ${format ?? '(missing)'}.`);
+  }
+
+  if (raw.formatVersion !== undefined && raw.formatVersion !== BACKUP_FORMAT_VERSION) {
+    errors.push(
+      `Backup envelope version ${String(raw.formatVersion)} is not supported (expected ${BACKUP_FORMAT_VERSION}).`,
+    );
   }
 
   const schemaVersion = raw.schemaVersion;
@@ -194,9 +235,19 @@ export function validateBackup(raw: unknown, supportedSchema = SCHEMA_VERSION): 
   return { ok: errors.length === 0, errors, format, hasImages };
 }
 
+export interface RestoreOptions {
+  /**
+   * Proof that the ledger about to be replaced is either backed up or empty.
+   * Required: a restore destroys the authoritative ledger.
+   */
+  safetyBackup: SafetyBackupAcknowledgement | null;
+}
+
 export interface RestoreResult {
   ok: boolean;
   error?: string;
+  /** True when the caller must produce a safety backup and retry. */
+  needsSafetyBackup?: boolean;
   restoredCounts?: Record<string, number>;
 }
 
@@ -204,11 +255,20 @@ export interface RestoreResult {
  * Atomically replace the database contents from a validated backup. Every write
  * happens inside a single transaction; any failure aborts and rolls back.
  */
-export async function restoreBackup(raw: unknown): Promise<RestoreResult> {
+export async function restoreBackup(raw: unknown, options: RestoreOptions): Promise<RestoreResult> {
   const validation = validateBackup(raw);
   if (!validation.ok) {
     return { ok: false, error: `Backup failed validation:\n- ${validation.errors.join('\n- ')}` };
   }
+
+  // Nothing destructive has happened yet. The safety gate runs before the first
+  // write and re-verifies any "there is nothing to lose" claim itself.
+  const existingRecords = await countCanonicalRecords();
+  const gate = checkSafetyGate(options?.safetyBackup, existingRecords);
+  if (!gate.ok) {
+    return { ok: false, error: gate.error, needsSafetyBackup: gate.needsSafetyBackup };
+  }
+
   const backup = raw as Record<string, any>;
   const db = getDB();
 
@@ -291,6 +351,8 @@ export async function restoreBackup(raw: unknown): Promise<RestoreResult> {
           lastBackupGeneratedAt: backup.meta?.lastBackupGeneratedAt ?? null,
           lastArchiveConfirmedAt: backup.meta?.lastArchiveConfirmedAt ?? null,
           restoredAt: new Date().toISOString(),
+          persistRequestedAt: backup.meta?.persistRequestedAt ?? null,
+          lastImportAt: backup.meta?.lastImportAt ?? null,
         };
         await db.kv.put({ key: 'meta', value: meta });
       },
