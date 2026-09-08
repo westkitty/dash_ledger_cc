@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useLedger, useLedgerContext } from '../../state/store';
+import { useLedger, useLedgerContext, useUndoableDelete } from '../../state/store';
 import { Link, useRouter } from '../../app/router';
 import {
   ChipGroup,
@@ -10,7 +10,7 @@ import {
   TextInput,
 } from '../../components/forms';
 import { Button, Card, ConfirmButton, EmptyState, Money, Notice } from '../../components/ui';
-import { createExpense, updateExpense, deleteExpense } from '../../db/repositories';
+import { createExpense, updateExpense, deleteExpense, restoreDeletedExpense } from '../../db/repositories';
 import { ALL_CATEGORIES, QUICK_CATEGORIES, taxClassForCategory } from '../../domain/expenses';
 import { TAX_CLASS_HINTS, TAX_CLASS_LABELS, type TaxClass } from '../../domain/types';
 import { parseMoneyToCents, formatCents } from '../../domain/money';
@@ -30,6 +30,7 @@ export function ExpenseFormScreen({
 }) {
   const snap = useLedger();
   const { mutate } = useLedgerContext();
+  const undoableDelete = useUndoableDelete();
   const { navigate } = useRouter();
   const { expenses, shifts, receipts, merchantMemory } = snap;
 
@@ -212,11 +213,14 @@ export function ExpenseFormScreen({
           </p>
           <ConfirmButton
             block
-            onConfirm={() =>
-              void mutate(() => deleteExpense(existing.id), { success: 'Expense deleted' }).then(() =>
-                navigate('/week', { replace: true }),
-              )
-            }
+            onConfirm={() => {
+              void undoableDelete(
+                () => deleteExpense(existing.id),
+                (d) => restoreDeletedExpense(d),
+                { deleted: 'Expense deleted — linked receipt kept', restored: 'Expense restored' },
+              );
+              navigate('/week', { replace: true });
+            }}
           >
             Delete expense
           </ConfirmButton>

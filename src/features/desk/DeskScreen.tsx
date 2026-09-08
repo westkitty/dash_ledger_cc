@@ -17,13 +17,13 @@
  */
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useLedger, useLedgerContext } from '../../state/store';
+import { useLedger, useUndoableDelete } from '../../state/store';
 import { useRouter, Link } from '../../app/router';
 import { Button, Card, ConfirmButton, EmptyState, Money } from '../../components/ui';
 import { BackupHealthCard } from '../../components/BackupHealthCard';
 import { StartDashSheet } from './StartDashSheet';
 import { EndDashSheet } from './EndDashSheet';
-import { deleteShift } from '../../db/repositories';
+import { deleteShift, restoreDeletedShift } from '../../db/repositories';
 import type { Shift } from '../../domain/types';
 import { formatLocalDate, mondayOf, nowLocalTime, todayLocalDate } from '../../domain/dates';
 import { summariseWeek } from '../../domain/aggregation';
@@ -41,7 +41,7 @@ function deskLabel(hour: number): string {
 
 export function DeskScreen() {
   const snap = useLedger();
-  const { mutate } = useLedgerContext();
+  const undoableDelete = useUndoableDelete();
   const { navigate } = useRouter();
   const { shifts, expenses, receipts, mileageRates, settings, activeShift } = snap;
 
@@ -80,7 +80,11 @@ export function DeskScreen() {
           shifts={shifts}
           onEnd={() => setEndOpen(true)}
           onDiscard={() =>
-            void mutate(() => deleteShift(activeShift.id), { success: 'Active dash discarded' })
+            void undoableDelete(
+              () => deleteShift(activeShift.id),
+              (d) => restoreDeletedShift(d),
+              { deleted: 'Active dash discarded', restored: 'Active dash restored' },
+            )
           }
         />
       ) : (

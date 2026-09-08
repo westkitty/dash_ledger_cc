@@ -386,17 +386,41 @@ export async function updateShift(id: string, patch: EditShiftInput): Promise<Sh
   });
 }
 
+export interface DeletedShift {
+  shift: Shift;
+  /** Expenses whose `shiftId` pointed at the deleted shift and was cleared. */
+  detachedExpenseIds: string[];
+}
+
 /**
  * Delete a shift. Linked expenses and receipts are preserved; only their
- * `shiftId` back-reference is cleared.
+ * `shiftId` back-reference is cleared. Returns everything needed to undo.
  */
-export async function deleteShift(id: string): Promise<void> {
+export async function deleteShift(id: string): Promise<DeletedShift | null> {
   const db = getDB();
-  await db.transaction('rw', db.shifts, db.expenses, db.kv, async () => {
+  return db.transaction('rw', db.shifts, db.expenses, db.kv, async () => {
+    const shift = await db.shifts.get(id);
+    if (!shift) return null;
     await db.shifts.delete(id);
     const linked = await db.expenses.where('shiftId').equals(id).toArray();
     for (const e of linked) {
       await db.expenses.update(e.id, { shiftId: null, updatedAt: nowIso() });
+    }
+    await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
+    return { shift, detachedExpenseIds: linked.map((e) => e.id) };
+  });
+}
+
+/** Re-create a shift removed by `deleteShift`, re-attaching still-present expenses. */
+export async function restoreDeletedShift(deleted: DeletedShift): Promise<void> {
+  const db = getDB();
+  await db.transaction('rw', db.shifts, db.expenses, db.kv, async () => {
+    await db.shifts.put(deleted.shift);
+    for (const eid of deleted.detachedExpenseIds) {
+      const e = await db.expenses.get(eid);
+      if (e && e.shiftId === null) {
+        await db.expenses.update(eid, { shiftId: deleted.shift.id, updatedAt: nowIso() });
+      }
     }
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
   });
@@ -469,15 +493,46 @@ export async function updateExpense(id: string, patch: Partial<ExpenseInput>): P
   });
 }
 
+export interface DeletedExpense {
+  expense: Expense;
+  /** Receipt whose `expenseId` pointed at the deleted expense and was cleared. */
+  detachedReceiptId: string | null;
+}
+
 /** Delete an expense. Linked receipt is preserved; its `expenseId` is cleared. */
-export async function deleteExpense(id: string): Promise<void> {
+export async function deleteExpense(id: string): Promise<DeletedExpense | null> {
   const db = getDB();
-  await db.transaction('rw', db.expenses, db.receipts, db.kv, async () => {
+  return db.transaction('rw', db.expenses, db.receipts, db.kv, async () => {
     const existing = await db.expenses.get(id);
+    if (!existing) return null;
     await db.expenses.delete(id);
-    if (existing?.receiptId) {
+    if (existing.receiptId) {
       await db.receipts.update(existing.receiptId, { expenseId: null, updatedAt: nowIso() });
     }
+    await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
+    return { expense: existing, detachedReceiptId: existing.receiptId ?? null };
+  });
+}
+
+/** Re-create an expense removed by `deleteExpense`, re-attaching a still-present receipt. */
+export async function restoreDeletedExpense(deleted: DeletedExpense): Promise<void> {
+  const db = getDB();
+  await db.transaction('rw', db.expenses, db.receipts, db.kv, async () => {
+    let reattached = false;
+    if (deleted.detachedReceiptId) {
+      const r = await db.receipts.get(deleted.detachedReceiptId);
+      if (r && r.expenseId === null) {
+        await db.receipts.update(deleted.detachedReceiptId, {
+          expenseId: deleted.expense.id,
+          updatedAt: nowIso(),
+        });
+        reattached = true;
+      }
+    }
+    await db.expenses.put({
+      ...deleted.expense,
+      receiptId: reattached ? deleted.detachedReceiptId : null,
+    });
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
   });
 }
@@ -623,16 +678,53 @@ export async function updateReceipt(id: string, patch: ReceiptEditInput): Promis
   });
 }
 
+export interface DeletedReceipt {
+  receipt: Receipt;
+  /** The stored image/thumbnail blob row, so an undo restores the photo too. */
+  blob: ReceiptBlob | null;
+  /** Expense whose `receiptId` pointed at the deleted receipt and was cleared. */
+  detachedExpenseId: string | null;
+}
+
 /** Delete a receipt and its blob. Linked expense is preserved; `receiptId` cleared. */
-export async function deleteReceipt(id: string): Promise<void> {
+export async function deleteReceipt(id: string): Promise<DeletedReceipt | null> {
   const db = getDB();
-  await db.transaction('rw', db.receipts, db.receiptBlobs, db.expenses, db.kv, async () => {
+  return db.transaction('rw', db.receipts, db.receiptBlobs, db.expenses, db.kv, async () => {
     const existing = await db.receipts.get(id);
+    if (!existing) return null;
+    const blob = (await db.receiptBlobs.get(id)) ?? null;
     await db.receipts.delete(id);
     await db.receiptBlobs.delete(id);
-    if (existing?.expenseId) {
+    if (existing.expenseId) {
       await db.expenses.update(existing.expenseId, { receiptId: null, updatedAt: nowIso() });
     }
+    await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
+    return { receipt: existing, blob, detachedExpenseId: existing.expenseId ?? null };
+  });
+}
+
+/** Re-create a receipt removed by `deleteReceipt`, including its blob and expense link. */
+export async function restoreDeletedReceipt(deleted: DeletedReceipt): Promise<void> {
+  const db = getDB();
+  await db.transaction('rw', db.receipts, db.receiptBlobs, db.expenses, db.kv, async () => {
+    let reattached = false;
+    if (deleted.detachedExpenseId) {
+      const e = await db.expenses.get(deleted.detachedExpenseId);
+      if (e && e.receiptId === null) {
+        await db.expenses.update(deleted.detachedExpenseId, {
+          receiptId: deleted.receipt.id,
+          updatedAt: nowIso(),
+        });
+        reattached = true;
+      }
+    }
+    // Keep the restored row's own link field truthful: only claim the expense
+    // if we actually re-established the pairing.
+    await db.receipts.put({
+      ...deleted.receipt,
+      expenseId: reattached ? deleted.detachedExpenseId : null,
+    });
+    if (deleted.blob) await db.receiptBlobs.put(deleted.blob);
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
   });
 }

@@ -1,6 +1,6 @@
-import { useLedger, useLedgerContext } from '../../state/store';
+import { useLedger, useLedgerContext, useUndoableDelete } from '../../state/store';
 import { Link, useRouter } from '../../app/router';
-import { deleteShift, updateShift, endShift } from '../../db/repositories';
+import { deleteShift, restoreDeletedShift, updateShift, endShift } from '../../db/repositories';
 import { Button, Card, ConfirmButton, EmptyState, Money, Notice, Pill } from '../../components/ui';
 import { ShiftForm } from './ShiftForm';
 import { formatLocalDate } from '../../domain/dates';
@@ -9,6 +9,7 @@ import { computeMileage } from '../../domain/mileage';
 export function EditDashScreen({ id }: { id: string }) {
   const { shifts, vehicles, expenses, settings, mileageRates } = useLedger();
   const { mutate } = useLedgerContext();
+  const undoableDelete = useUndoableDelete();
   const { navigate } = useRouter();
 
   const shift = shifts.find((s) => s.id === id);
@@ -132,9 +133,14 @@ export function EditDashScreen({ id }: { id: string }) {
         </p>
         <ConfirmButton
           block
-          onConfirm={() =>
-            void mutate(() => deleteShift(shift.id), { success: 'Dash deleted' }).then(() => navigate('/'))
-          }
+          onConfirm={() => {
+            void undoableDelete(
+              () => deleteShift(shift.id),
+              (d) => restoreDeletedShift(d),
+              { deleted: 'Dash deleted', restored: 'Dash restored' },
+            );
+            navigate('/');
+          }}
         >
           Delete dash
         </ConfirmButton>

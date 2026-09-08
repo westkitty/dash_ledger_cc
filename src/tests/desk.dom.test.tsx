@@ -215,3 +215,27 @@ describe('recovery route', () => {
     expect(screen.queryByText(/ready when you are/i)).toBeNull();
   });
 });
+
+describe('discarding an active dash', () => {
+  beforeEach(async () => {
+    await createVehicle('Prius');
+  });
+
+  it('offers Undo and restores the active dash', async () => {
+    renderApp();
+    fireEvent.click(await findStartButton());
+    fireEvent.change(await sheet().findByLabelText(/starting odometer/i), { target: { value: '1000' } });
+    fireEvent.click(sheet().getByRole('button', { name: /^start dash$/i }));
+    await waitFor(() => expect(onRoad()).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /discard dash/i }));
+    fireEvent.click(screen.getByRole('button', { name: /tap again to confirm/i }));
+
+    await waitFor(() => expect(onRoad()).toBeNull());
+    const undo = await screen.findByRole('button', { name: /^undo$/i });
+    fireEvent.click(undo);
+
+    await waitFor(() => expect(onRoad()).toBeTruthy());
+    expect((await getDB().shifts.where('status').equals('active').toArray())).toHaveLength(1);
+  });
+});

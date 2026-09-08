@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react';
-import { useLedger, useLedgerContext } from '../../state/store';
+import { useLedger, useLedgerContext, useUndoableDelete } from '../../state/store';
 import { Link, useRouter } from '../../app/router';
 import { Button, Card, ConfirmButton, EmptyState, Notice, Pill } from '../../components/ui';
 import { ReceiptFullImage } from '../../components/ReceiptImage';
-import { DateInput, MoneyInput, SelectInput, TextArea, TextInput } from '../../components/forms';
-import { createExpense, deleteReceipt, updateReceipt } from '../../db/repositories';
-import { ALL_CATEGORIES, taxClassForCategory } from '../../domain/expenses';
+import { ChipGroup, DateInput, MoneyInput, SelectInput, TextArea, TextInput } from '../../components/forms';
+import {
+  createExpense,
+  deleteReceipt,
+  restoreDeletedReceipt,
+  updateReceipt,
+} from '../../db/repositories';
+import { ALL_CATEGORIES, QUICK_CATEGORIES, taxClassForCategory } from '../../domain/expenses';
 import { TAX_CLASS_LABELS } from '../../domain/types';
 import { parseMoneyToCents, formatCents } from '../../domain/money';
 import { normaliseMerchant, suggestionFor } from '../../domain/merchantMemory';
@@ -14,6 +19,7 @@ import { formatBytes } from '../../services/storageHealth';
 export function ReceiptDetailScreen({ id }: { id: string }) {
   const snap = useLedger();
   const { mutate } = useLedgerContext();
+  const undoableDelete = useUndoableDelete();
   const { navigate } = useRouter();
   const { receipts, expenses, merchantMemory } = snap;
 
@@ -134,6 +140,12 @@ export function ReceiptDetailScreen({ id }: { id: string }) {
           </Notice>
         )}
         <MoneyInput label="Amount" value={amount} onChange={setAmount} />
+        <ChipGroup
+          label="Quick categories"
+          options={QUICK_CATEGORIES}
+          value={category}
+          onChange={setCategory}
+        />
         <SelectInput
           label="Category"
           value={category}
@@ -200,11 +212,14 @@ export function ReceiptDetailScreen({ id }: { id: string }) {
         </p>
         <ConfirmButton
           block
-          onConfirm={() =>
-            void mutate(() => deleteReceipt(receipt.id), { success: 'Receipt deleted' }).then(() =>
-              navigate('/receipts', { replace: true }),
-            )
-          }
+          onConfirm={() => {
+            void undoableDelete(
+              () => deleteReceipt(receipt.id),
+              (d) => restoreDeletedReceipt(d),
+              { deleted: 'Receipt deleted', restored: 'Receipt restored' },
+            );
+            navigate('/receipts', { replace: true });
+          }}
         >
           Delete receipt
         </ConfirmButton>

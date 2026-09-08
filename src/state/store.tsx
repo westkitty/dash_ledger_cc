@@ -21,10 +21,17 @@ import type { ThemeChoice } from '../domain/types';
 
 type Status = 'loading' | 'ready' | 'error' | 'no-indexeddb';
 
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
+
 export interface ToastItem {
   id: number;
   message: string;
   tone: 'default' | 'warn' | 'danger';
+  /** Optional single action, e.g. "Undo". Extends the toast's lifetime. */
+  action?: ToastAction;
 }
 
 interface LedgerContextValue {
@@ -35,7 +42,7 @@ interface LedgerContextValue {
   /** Run a mutation, reload, and surface a toast. Returns the result or throws. */
   mutate: <T>(fn: () => Promise<T>, opts?: { success?: string; silent?: boolean }) => Promise<T>;
   toasts: ToastItem[];
-  pushToast: (message: string, tone?: ToastItem['tone']) => void;
+  pushToast: (message: string, tone?: ToastItem['tone'], action?: ToastAction) => void;
   dismissToast: (id: number) => void;
   setTheme: (t: ThemeChoice) => void;
 }
@@ -91,10 +98,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pushToast = useCallback(
-    (message: string, tone: ToastItem['tone'] = 'default') => {
+    (message: string, tone: ToastItem['tone'] = 'default', action?: ToastAction) => {
       const id = toastSeq.current++;
-      setToasts((t) => [...t, { id, message, tone }]);
-      const ttl = tone === 'default' ? 3200 : 5200;
+      setToasts((t) => [...t, { id, message, tone, action }]);
+      // An actionable toast (e.g. Undo) stays long enough to actually use.
+      const ttl = action ? 8000 : tone === 'default' ? 3200 : 5200;
       window.setTimeout(() => dismissToast(id), ttl);
     },
     [dismissToast],
@@ -159,4 +167,31 @@ export function useToast() {
 export function useMutate() {
   const { mutate } = useLedgerContext();
   return mutate;
+}
+
+/**
+ * Run a delete that returns an undo payload, then surface a toast with an
+ * "Undo" action that reverses it. If the record was already gone (`null`
+ * payload) a plain toast is shown. Evidence is never lost to a mis-tap.
+ */
+export function useUndoableDelete() {
+  const { mutate, pushToast } = useLedgerContext();
+  return useCallback(
+    async <T,>(
+      del: () => Promise<T | null>,
+      restore: (payload: T) => Promise<unknown>,
+      opts: { deleted: string; restored: string },
+    ): Promise<void> => {
+      const payload = await mutate(del, { silent: true });
+      if (payload == null) {
+        pushToast(opts.deleted);
+        return;
+      }
+      pushToast(opts.deleted, 'default', {
+        label: 'Undo',
+        run: () => void mutate(() => restore(payload), { success: opts.restored }),
+      });
+    },
+    [mutate, pushToast],
+  );
 }
