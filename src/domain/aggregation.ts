@@ -294,6 +294,47 @@ export function summariseYear(
   };
 }
 
+export interface MonthSummary {
+  /** 1-12 */
+  month: number;
+  dashCount: number;
+  grossIncomeCents: number;
+  businessMiles: number;
+  trackedExpensesCents: number;
+}
+
+/** Per-month rollup for one year. Always 12 rows so a report can show every month. */
+export function summariseYearByMonth(
+  year: number,
+  allShifts: Shift[],
+  allExpenses: Expense[],
+  implausibleMiles?: number,
+): MonthSummary[] {
+  const months: MonthSummary[] = Array.from({ length: 12 }, (_, i) => ({
+    month: i + 1,
+    dashCount: 0,
+    grossIncomeCents: 0,
+    businessMiles: 0,
+    trackedExpensesCents: 0,
+  }));
+  for (const s of allShifts) {
+    if (s.status !== 'completed' || yearOf(s.date) !== year) continue;
+    const m = Number(s.date.slice(5, 7));
+    if (m < 1 || m > 12) continue;
+    const row = months[m - 1];
+    row.dashCount += 1;
+    row.grossIncomeCents += grossIncomeCents(s.appEarningsCents, s.cashTipsCents);
+    row.businessMiles += countableBusinessMiles(s, implausibleMiles);
+  }
+  for (const e of allExpenses) {
+    if (yearOf(e.date) !== year) continue;
+    const m = Number(e.date.slice(5, 7));
+    if (m < 1 || m > 12) continue;
+    months[m - 1].trackedExpensesCents += e.amountCents;
+  }
+  return months;
+}
+
 export interface AnnualOdometerResult {
   hasData: boolean;
   annualVehicleMiles: number | null;

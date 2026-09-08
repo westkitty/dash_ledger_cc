@@ -512,6 +512,35 @@ textarea.input {
   padding: 0 var(--space-3) var(--space-3);
 }
 
+.mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-table th,
+.mini-table td {
+  padding: var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+.mini-table th {
+  color: var(--ink-faint);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mini-table .num {
+  text-align: right;
+}
+
+.mini-table tr.faint td {
+  color: var(--ink-faint);
+}
+
 .disclaimer-note {
   font-size: 0.82rem;
   color: var(--ink-soft);

@@ -6,6 +6,7 @@ import { saveSettings } from '../../db/repositories';
 import { yearOf } from '../../domain/dates';
 import {
   summariseYear,
+  summariseYearByMonth,
   annualOdometerResult,
   actualExpensePlanning,
   reconcileStatement,
@@ -36,6 +37,13 @@ export function YearReport({ year: yearParam }: { year: string | null }) {
     () => summariseYear(year, shifts, expenses, receipts, reviewed, mileageRates, settings.implausibleMiles),
     [year, shifts, expenses, receipts, reviewed, mileageRates, settings.implausibleMiles],
   );
+  const months = useMemo(
+    () => summariseYearByMonth(year, shifts, expenses, settings.implausibleMiles),
+    [year, shifts, expenses, settings.implausibleMiles],
+  );
+  const MONTH_NAMES = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
 
   const odoRec = settings.annualOdometers.find((o) => o.year === year);
   const odo = annualOdometerResult(odoRec?.startOdometer ?? null, odoRec?.endOdometer ?? null, yr.businessMiles);
@@ -142,6 +150,39 @@ export function YearReport({ year: yearParam }: { year: string | null }) {
             { label: 'Unresolved records', value: yr.unresolvedRecordCount },
           ]}
         />
+      </Card>
+
+      <Card label="Month by month">
+        <details className="disclosure">
+          <summary>
+            {months.filter((m) => m.dashCount > 0 || m.trackedExpensesCents > 0).length} month(s) with
+            activity
+          </summary>
+          <div className="disclosure__body" style={{ overflowX: 'auto' }}>
+            <table className="mini-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th className="num">Dashes</th>
+                  <th className="num">Gross</th>
+                  <th className="num">Miles</th>
+                  <th className="num">Expenses</th>
+                </tr>
+              </thead>
+              <tbody>
+                {months.map((m) => (
+                  <tr key={m.month} className={m.dashCount === 0 && m.trackedExpensesCents === 0 ? 'faint' : ''}>
+                    <td>{MONTH_NAMES[m.month - 1]}</td>
+                    <td className="num">{m.dashCount}</td>
+                    <td className="num">{formatCents(m.grossIncomeCents)}</td>
+                    <td className="num">{m.businessMiles.toLocaleString('en-US')}</td>
+                    <td className="num">{formatCents(m.trackedExpensesCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </Card>
 
       <Card label="Mileage estimate by effective rate period">

@@ -1,6 +1,27 @@
 import { describe, it, expect } from 'vitest';
-import { csvEscape, toCsv, shiftsToCsv, expensesToCsv } from '../services/csv';
+import { csvEscape, neutraliseCsvInjection, toCsv, shiftsToCsv, expensesToCsv } from '../services/csv';
 import { makeShift, makeExpense } from './factories';
+
+describe('CSV formula-injection neutralisation', () => {
+  it('prefixes cells that a spreadsheet would treat as a formula', () => {
+    expect(neutraliseCsvInjection('=SUM(A1:A9)')).toBe("'=SUM(A1:A9)");
+    expect(neutraliseCsvInjection('+1+1')).toBe("'+1+1");
+    expect(neutraliseCsvInjection('@import')).toBe("'@import");
+    expect(neutraliseCsvInjection('-cmd|calc')).toBe("'-cmd|calc");
+    expect(neutraliseCsvInjection('\tTabbed')).toBe("'\tTabbed");
+  });
+  it('leaves plain text and real numbers (including negatives) untouched', () => {
+    expect(neutraliseCsvInjection('Shell')).toBe('Shell');
+    expect(neutraliseCsvInjection('-12.00')).toBe('-12.00');
+    expect(neutraliseCsvInjection('105.00')).toBe('105.00');
+    expect(neutraliseCsvInjection('')).toBe('');
+  });
+  it('a malicious merchant name is neutralised in the expenses CSV', () => {
+    const csv = expensesToCsv([makeExpense({ merchant: '=HYPERLINK("http://evil","x")', date: '2026-01-05' })]);
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).not.toMatch(/,=HYPERLINK/);
+  });
+});
 
 describe('CSV escaping', () => {
   it('doubles embedded quotes and wraps fields containing quotes', () => {

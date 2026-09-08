@@ -14,8 +14,27 @@ import { computeMileage } from '../domain/mileage';
 
 const EOL = '\r\n';
 
+/**
+ * Neutralise CSV formula injection: a spreadsheet treats a cell starting with
+ * `= + @ TAB CR` (or `-` when it isn't a plain number) as a formula. Prefixing
+ * with an apostrophe makes it a literal string on open. Plain numbers, including
+ * negatives like `-12.00`, are left untouched so numeric columns stay numeric.
+ */
+export function neutraliseCsvInjection(s: string): string {
+  if (s === '') return s;
+  const first = s[0];
+  if (first === '=' || first === '+' || first === '@' || first === '\t' || first === '\r') {
+    return `'${s}`;
+  }
+  if (first === '-' && !/^-?\d+(\.\d+)?$/.test(s)) {
+    return `'${s}`;
+  }
+  return s;
+}
+
 export function csvEscape(value: unknown): string {
-  const s = value === null || value === undefined ? '' : String(value);
+  const raw = value === null || value === undefined ? '' : String(value);
+  const s = neutraliseCsvInjection(raw);
   if (/[",\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
