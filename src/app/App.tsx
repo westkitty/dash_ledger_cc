@@ -6,8 +6,9 @@ import { BottomNav } from './BottomNav';
 import { ToastHost } from './ToastHost';
 import { UpdateBanner } from './UpdateBanner';
 import { EmptyState } from '../components/ui';
+import { OnRoadBar } from '../features/desk/OnRoadBar';
 
-import { DashHome } from '../features/dash/DashHome';
+import { DeskScreen } from '../features/desk/DeskScreen';
 import { StartDashScreen } from '../features/dash/StartDashScreen';
 import { EndDashScreen } from '../features/dash/EndDashScreen';
 import { LogCompletedDashScreen } from '../features/dash/LogCompletedDashScreen';
@@ -24,7 +25,7 @@ import { DiagnosticsScreen } from '../features/diagnostics/DiagnosticsScreen';
 import { OnboardingScreen } from '../features/onboarding/OnboardingScreen';
 
 const ROUTES: RouteDef[] = [
-  { path: '/', render: () => <DashHome /> },
+  { path: '/', render: () => <DeskScreen /> },
   { path: '/onboarding', render: () => <OnboardingScreen /> },
   { path: '/start', render: () => <StartDashScreen /> },
   { path: '/end', render: () => <EndDashScreen /> },
@@ -94,27 +95,14 @@ function DbError({ message, onRetry }: { message: string; onRetry: () => void })
 
 export function App() {
   const { status, error, snapshot, reload } = useLedgerContext();
-  const { path, query, navigate } = useRouter();
+  const { path } = useRouter();
 
-  const hasVehicle = !!snapshot && snapshot.vehicles.some((v) => !v.archived);
   const activeShift = snapshot?.activeShift;
 
-  // First-run: force onboarding until at least one vehicle exists.
-  //
-  // Recovery is exempt. Someone whose records live in an earlier Dash Ledger
-  // version arrives here with an empty canonical ledger and no vehicle, and the
-  // import is exactly what will create their vehicles — sending them to
-  // onboarding first would make them invent one before they could get their own
-  // data back.
-  const isRecoveryRoute = path === '/vault' && query.get('s') === 'recovery';
-
-  useEffect(() => {
-    if (status !== 'ready') return;
-    if (!hasVehicle && path !== '/onboarding' && !isRecoveryRoute) {
-      navigate('/onboarding', { replace: true });
-    }
-    if (hasVehicle && path === '/onboarding') navigate('/', { replace: true });
-  }, [status, hasVehicle, path, isRecoveryRoute, navigate]);
+  // No onboarding wall. The Desk is the first meaningful screen even for a brand
+  // new ledger with no vehicle — tapping Start Dash chains through a minimal
+  // vehicle-creation step and resumes. `/onboarding` still exists for explicit
+  // setup, and Recovery (`/vault?s=recovery`) is always directly reachable.
 
   // Reflect active-dash mode on <body> so the whole shell shifts visually.
   useEffect(() => {
@@ -129,6 +117,7 @@ export function App() {
   return (
     <div className="app-shell">
       <UpdateBanner />
+      <OnRoadBar />
       <main className={`app-main ${activeShift && path === '/' ? 'app-main--active' : ''}`}>
         <RootErrorBoundary scope={path} key={path}>
           <Routes

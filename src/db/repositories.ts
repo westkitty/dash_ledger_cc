@@ -284,6 +284,20 @@ export async function endShift(id: string, input: EndShiftInput): Promise<Shift>
   return db.transaction('rw', db.shifts, db.kv, async () => {
     const shift = await db.shifts.get(id);
     if (!shift) throw new Error('Dash not found.');
+    // Reversed odometer is a factual error, not an unusual-but-plausible value.
+    // Reject it here so the invariant holds even if the UI guard is bypassed;
+    // the reading is never zeroed, clamped or swapped.
+    if (
+      typeof input.endOdometer === 'number' &&
+      Number.isFinite(input.endOdometer) &&
+      typeof shift.startOdometer === 'number' &&
+      Number.isFinite(shift.startOdometer) &&
+      input.endOdometer < shift.startOdometer
+    ) {
+      throw new Error(
+        'Ending odometer is lower than the starting odometer. Fix the readings before completing this dash.',
+      );
+    }
     const now = nowIso();
     const next: Shift = {
       ...shift,

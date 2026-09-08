@@ -1,4 +1,5 @@
 import { useRouter, Link } from './router';
+import { useLedgerContext } from '../state/store';
 
 const ITEMS = [
   { to: '/', label: 'Dash', match: (p: string) => p === '/' || p === '/start' || p === '/end' || p === '/log' || p.startsWith('/dash/'), icon: DashIcon },
@@ -9,12 +10,15 @@ const ITEMS = [
 
 export function BottomNav() {
   const { path } = useRouter();
+  const { snapshot } = useLedgerContext();
+  const onRoad = !!snapshot?.activeShift;
   return (
     <nav className="bottom-nav" aria-label="Primary">
       <div className="bottom-nav__inner">
         {ITEMS.map((item) => {
           const active = item.match(path);
           const Icon = item.icon;
+          const showRoadMark = onRoad && item.to === '/';
           return (
             <Link
               key={item.to}
@@ -24,8 +28,10 @@ export function BottomNav() {
             >
               <span className="bottom-nav__icon" aria-hidden>
                 <Icon active={active} />
+                {showRoadMark && <span className="bottom-nav__dot" />}
               </span>
               {item.label}
+              {showRoadMark && <span className="sr-only"> — on the road</span>}
             </Link>
           );
         })}
