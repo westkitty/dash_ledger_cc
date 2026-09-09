@@ -18,7 +18,7 @@ import { Sheet } from '../../components/Sheet';
 import { Button, Money, Notice } from '../../components/ui';
 import { MoneyInput, NumberInput, TextArea, TimeInput } from '../../components/forms';
 import { nowLocalTime } from '../../domain/dates';
-import { grossIncomeCents, parseMoneyToCents } from '../../domain/money';
+import { formatCents, grossIncomeCents, parseMoneyToCents } from '../../domain/money';
 import { computeMileage } from '../../domain/mileage';
 import { formatHours, shiftDuration } from '../../domain/duration';
 
@@ -79,7 +79,7 @@ export function EndDashSheet({ onClose }: { onClose: () => void }) {
         { silent: true },
       );
       const milesText = mileage.miles === null ? 'miles missing' : `${mileage.miles.toLocaleString('en-US')} mi`;
-      const grossText = gross > 0 ? ` · $${(gross / 100).toFixed(2)}` : '';
+      const grossText = gross > 0 ? ` · ${formatCents(gross)}` : '';
       pushToast(`Dash saved · ${milesText}${grossText}`);
       onClose();
     } catch (err) {

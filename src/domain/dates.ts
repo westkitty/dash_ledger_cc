@@ -50,6 +50,17 @@ export function todayLocalDate(now: Date = new Date()): LocalDate {
   return dateToLocalDate(now);
 }
 
+/**
+ * Local calendar date of an ISO timestamp, using the device's local components.
+ * `isoTimestamp.slice(0, 10)` would return the *UTC* date, which can be a day
+ * off near midnight; use this whenever a timestamp needs a work-date bucket.
+ */
+export function isoToLocalDate(iso: string): LocalDate {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
+  return dateToLocalDate(d);
+}
+
 /** Current local wall-clock time as HH:mm. */
 export function nowLocalTime(now: Date = new Date()): string {
   return `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;

@@ -294,19 +294,9 @@ export async function endShift(id: string, input: EndShiftInput): Promise<Shift>
     const shift = await db.shifts.get(id);
     if (!shift) throw new Error('Dash not found.');
     // Reversed odometer is a factual error, not an unusual-but-plausible value.
-    // Reject it here so the invariant holds even if the UI guard is bypassed;
-    // the reading is never zeroed, clamped or swapped.
-    if (
-      typeof input.endOdometer === 'number' &&
-      Number.isFinite(input.endOdometer) &&
-      typeof shift.startOdometer === 'number' &&
-      Number.isFinite(shift.startOdometer) &&
-      input.endOdometer < shift.startOdometer
-    ) {
-      throw new Error(
-        'Ending odometer is lower than the starting odometer. Fix the readings before completing this dash.',
-      );
-    }
+    // Rejected here so the invariant holds even if a UI guard is bypassed; the
+    // reading is never zeroed, clamped or swapped.
+    assertNotReversed(shift.startOdometer, input.endOdometer);
     const now = nowIso();
     const next: Shift = {
       ...shift,
@@ -325,10 +315,31 @@ export async function endShift(id: string, input: EndShiftInput): Promise<Shift>
   });
 }
 
+const REVERSED_ODOMETER_MESSAGE =
+  'Ending odometer is lower than the starting odometer. Fix the readings before completing this dash.';
+
+/**
+ * A completed dash may not carry a reversed odometer pair. Enforced at every
+ * repository write that completes or edits a completed dash, so the invariant
+ * holds even if a UI guard is bypassed. Readings are never zeroed or swapped.
+ */
+function assertNotReversed(startOdometer: number | null, endOdometer: number | null): void {
+  if (
+    typeof startOdometer === 'number' &&
+    Number.isFinite(startOdometer) &&
+    typeof endOdometer === 'number' &&
+    Number.isFinite(endOdometer) &&
+    endOdometer < startOdometer
+  ) {
+    throw new Error(REVERSED_ODOMETER_MESSAGE);
+  }
+}
+
 export type LogCompletedShiftInput = StartShiftInput & EndShiftInput & { notes: string };
 
 export async function logCompletedShift(input: LogCompletedShiftInput): Promise<Shift> {
   const db = getDB();
+  assertNotReversed(input.startOdometer, input.endOdometer);
   const now = nowIso();
   const shift: Shift = {
     id: newId(),
@@ -389,6 +400,10 @@ export async function updateShift(id: string, patch: EditShiftInput): Promise<Sh
       weekKey: mondayOf(patch.date ?? shift.date),
       updatedAt: nowIso(),
     };
+    // A completed dash must not be saved with a reversed odometer pair.
+    if (next.status === 'completed') {
+      assertNotReversed(next.startOdometer, next.endOdometer);
+    }
     await db.shifts.put(next);
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: next.updatedAt } });
     return next;

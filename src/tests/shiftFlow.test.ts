@@ -15,7 +15,9 @@ import {
   endShift,
   getActiveShift,
   loadSnapshot,
+  logCompletedShift,
   startShift,
+  updateShift,
   type StartShiftInput,
 } from '../db/repositories';
 import { computeMileage } from '../domain/mileage';
@@ -154,5 +156,52 @@ describe('end dash', () => {
     const completed = snap.shifts.filter((s) => s.status === 'completed');
     expect(completed).toHaveLength(1);
     expect(completed[0].endOdometer).toBe(1150);
+  });
+});
+
+describe('reversed-odometer rejection at every completion path', () => {
+  beforeEach(clearAll);
+
+  it('logCompletedShift refuses a reversed pair', async () => {
+    await expect(
+      logCompletedShift({
+        ...startInput({ startOdometer: 1000 }),
+        endTime: '17:00',
+        endOdometer: 800,
+        appEarningsCents: 5000,
+        cashTipsCents: 0,
+        notes: '',
+      }),
+    ).rejects.toThrow(/lower than the starting odometer/i);
+    expect(await getDB().shifts.count()).toBe(0);
+  });
+
+  it('updateShift refuses to leave a completed dash with a reversed pair', async () => {
+    const done = await logCompletedShift({
+      ...startInput({ startOdometer: 1000 }),
+      endTime: '15:00',
+      endOdometer: 1100,
+      appEarningsCents: 5000,
+      cashTipsCents: 0,
+      notes: '',
+    });
+    await expect(updateShift(done.id, { endOdometer: 900 })).rejects.toThrow(
+      /lower than the starting odometer/i,
+    );
+    // Unchanged.
+    expect((await getDB().shifts.get(done.id))!.endOdometer).toBe(1100);
+  });
+
+  it('an equal start/end pair (zero miles) is allowed', async () => {
+    const done = await logCompletedShift({
+      ...startInput({ startOdometer: 5000 }),
+      endTime: '15:00',
+      endOdometer: 5000,
+      appEarningsCents: 5000,
+      cashTipsCents: 0,
+      notes: '',
+    });
+    expect(done.status).toBe('completed');
+    expect(computeMileage(done.startOdometer, done.endOdometer, 400).miles).toBe(0);
   });
 });

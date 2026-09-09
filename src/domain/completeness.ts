@@ -86,7 +86,7 @@ export function weekCompleteness(
           code: 'no-rate',
           severity: 'info',
           message: `Dash on ${s.date} has ${miles} business miles with no configured mileage rate — those miles are unpriced.`,
-          href: '/settings',
+          href: '/vault?s=rates',
         });
       }
     }
@@ -144,25 +144,14 @@ export function weekCompleteness(
 }
 
 /**
- * Codes that represent a record actually needing a human decision (vs. a purely
- * informational note like a continuity gap or a missing linked receipt).
- */
-const REVIEW_CODES = new Set([
-  'active-dash',
-  'missing-odometer',
-  'reversed-odometer',
-  'suspicious-mileage',
-  'expense-review',
-  'receipt-inbox',
-  'receipt-image-warning',
-  'no-rate',
-]);
-
-/**
  * Everything across the whole ledger — not just one week — that still needs a
- * human decision. Built by running the per-week completeness check over every
- * week that has records and keeping only the actionable codes, de-duplicated.
- * Pure; the Desk renders it as a single "Needs review" surface.
+ * human decision. A single linear pass over the records (no per-week fan-out),
+ * keeping only actionable items: an open active dash, completed dashes with a
+ * missing / reversed / suspicious odometer, REVIEW-class expenses, Inbox
+ * receipts, receipts with a stored image error, and business miles with no
+ * configured rate. Purely informational notes (continuity gaps, missing linked
+ * receipts, incomplete times) are left to the per-week completeness list so this
+ * surface stays actionable. Pure; the Desk renders it as one "Needs review" card.
  */
 export function pendingReview(
   allShifts: Shift[],
@@ -171,38 +160,86 @@ export function pendingReview(
   rates: MileageRate[],
   implausibleMiles = 400,
 ): CompletenessIssue[] {
-  const weekKeys = new Set<string>();
-  for (const s of allShifts) weekKeys.add(mondayOf(s.date));
-  for (const e of allExpenses) weekKeys.add(mondayOf(e.date));
-  for (const r of allReceipts) if (r.date !== null) weekKeys.add(mondayOf(r.date));
+  const warns: CompletenessIssue[] = [];
+  const infos: CompletenessIssue[] = [];
 
-  const out: CompletenessIssue[] = [];
-  const seen = new Set<string>();
-  for (const wk of [...weekKeys].sort()) {
-    for (const iss of weekCompleteness(wk, allShifts, allExpenses, allReceipts, rates, implausibleMiles)) {
-      if (!REVIEW_CODES.has(iss.code)) continue;
-      const key = `${iss.code}|${iss.href ?? ''}|${iss.message}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push(iss);
+  for (const s of allShifts) {
+    if (s.status === 'active') {
+      warns.push({
+        code: 'active-dash',
+        severity: 'warn',
+        message: `An active dash from ${s.date} is still open.`,
+        href: `/dash/${s.id}`,
+      });
+      continue;
+    }
+    const m = computeMileage(s.startOdometer, s.endOdometer, implausibleMiles);
+    if (m.status === 'missing') {
+      warns.push({
+        code: 'missing-odometer',
+        severity: 'warn',
+        message: `Dash on ${s.date} is missing an odometer reading, so its business mileage cannot be calculated.`,
+        href: `/dash/${s.id}`,
+      });
+    } else if (m.status === 'reversed') {
+      warns.push({
+        code: 'reversed-odometer',
+        severity: 'warn',
+        message: `Dash on ${s.date} has an ending odometer below its starting odometer.`,
+        href: `/dash/${s.id}`,
+      });
+    } else if (m.status === 'suspicious') {
+      warns.push({
+        code: 'suspicious-mileage',
+        severity: 'warn',
+        message: `Dash on ${s.date} recorded ${m.miles} business miles — above the ${implausibleMiles}-mile check. Verify it.`,
+        href: `/dash/${s.id}`,
+      });
+    }
+    if ((m.status === 'ok' || m.status === 'suspicious') && (m.miles ?? 0) > 0 && !effectiveRate(s.date, rates)) {
+      infos.push({
+        code: 'no-rate',
+        severity: 'info',
+        message: `Dash on ${s.date} has ${m.miles} business miles with no configured mileage rate — those miles are unpriced.`,
+        href: '/vault?s=rates',
+      });
     }
   }
 
-  // A captured receipt with no date is never in a week bucket, but an unclassified
-  // one still needs attention.
+  for (const e of allExpenses) {
+    if ((e.taxClass || taxClassForCategory(e.category)) === 'REVIEW') {
+      warns.push({
+        code: 'expense-review',
+        severity: 'warn',
+        message: `Expense "${e.merchant || e.category}" on ${e.date} is still classified Review / Unsure.`,
+        href: `/expense/${e.id}`,
+      });
+    }
+  }
+
   for (const r of allReceipts) {
-    if (r.date === null && r.status === 'Inbox') {
-      out.push({
+    if (r.status === 'Inbox') {
+      warns.push({
         code: 'receipt-inbox',
         severity: 'warn',
-        message: 'A captured receipt has no date and is still in the Inbox.',
+        message:
+          r.date === null
+            ? 'A captured receipt has no date and is still in the Inbox.'
+            : `Receipt from ${r.date} is still in the Inbox and unclassified.`,
+        href: `/receipts/${r.id}`,
+      });
+    }
+    if (r.imageProcessingError) {
+      infos.push({
+        code: 'receipt-image-warning',
+        severity: 'info',
+        message: `Receipt from ${r.date ?? r.capturedAt.slice(0, 10)}: image optimisation failed but the original was preserved.`,
         href: `/receipts/${r.id}`,
       });
     }
   }
 
-  // Warnings first, then info; stable within each group.
-  return out.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'warn' ? -1 : 1));
+  return [...warns, ...infos];
 }
 
 /**

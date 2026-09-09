@@ -2,7 +2,7 @@ import { useLedger } from '../../state/store';
 import { Link } from '../../app/router';
 import { Card, EmptyState, Money } from '../../components/ui';
 import { ReceiptThumb } from '../../components/ReceiptImage';
-import { yearOf } from '../../domain/dates';
+import { isoToLocalDate, yearOf } from '../../domain/dates';
 
 export function ReceiptFolderScreen({ year, category }: { year: string; category: string }) {
   const { receipts } = useLedger();
@@ -10,7 +10,7 @@ export function ReceiptFolderScreen({ year, category }: { year: string; category
   const cat = decodeURIComponent(category);
 
   const items = receipts.filter((r) => {
-    const ry = r.date ? yearOf(r.date) : yearOf(r.capturedAt.slice(0, 10));
+    const ry = r.date ? yearOf(r.date) : yearOf(isoToLocalDate(r.capturedAt));
     const rc = r.category || 'Unfiled';
     return ry === y && rc === cat;
   });

@@ -3,7 +3,7 @@ import { useLedger } from '../../state/store';
 import { Link } from '../../app/router';
 import { Button, Card, EmptyState, Money, Pill } from '../../components/ui';
 import { ReceiptThumb } from '../../components/ReceiptImage';
-import { yearOf } from '../../domain/dates';
+import { isoToLocalDate, yearOf } from '../../domain/dates';
 
 export function ReceiptsScreen() {
   const { receipts } = useLedger();
@@ -14,7 +14,7 @@ export function ReceiptsScreen() {
   const folders = useMemo(() => {
     const map = new Map<string, { year: number; category: string; count: number }>();
     for (const r of receipts) {
-      const y = r.date ? yearOf(r.date) : yearOf(r.capturedAt.slice(0, 10));
+      const y = r.date ? yearOf(r.date) : yearOf(isoToLocalDate(r.capturedAt));
       const cat = r.category || 'Unfiled';
       const key = `${y}/${cat}`;
       const prev = map.get(key) ?? { year: y, category: cat, count: 0 };
