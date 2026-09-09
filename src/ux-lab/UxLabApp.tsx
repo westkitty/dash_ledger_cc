@@ -1,15 +1,3 @@
-/**
- * UX Lab standalone app tree — EXPERIMENTAL (branch: ui-ux-redesign-lab).
- *
- * Mounted by src/main.tsx INSTEAD of the canonical <App> whenever the hash is
- * #/ux-lab*. Because the swap happens before <LedgerProvider> ever mounts, lab
- * sessions never construct the store, never open IndexedDB, and cannot read or
- * write canonical user data — isolation is structural, not by convention.
- *
- * The canonical App.tsx and its route table are untouched; the lab renders no
- * production chrome (BottomNav / OnRoadBar / ToastHost all require the store).
- */
-
 import { Link } from '../app/router';
 import { Routes, type RouteDef } from '../app/router';
 import { RootErrorBoundary } from '../app/ErrorBoundary';
@@ -28,6 +16,11 @@ const UX_LAB_ROUTES: RouteDef[] = [
   { path: '/ux-lab/4', render: () => <Concept4YearGlance /> },
 ];
 
+/**
+ * Alternate UI tree. LedgerProvider is intentionally mounted above this tree
+ * in main.tsx, so every concept reads and mutates the exact same IndexedDB
+ * database as the canonical app.
+ */
 export function UxLabApp() {
   return (
     <div className="app-shell">
@@ -38,11 +31,9 @@ export function UxLabApp() {
             fallback={(p) => (
               <div className="uxlab stack">
                 <div className="uxlab-card">
-                  <div className="uxlab-label">UX Lab</div>
-                  <p>No lab concept matches <span className="inline-code">{p}</span>.</p>
-                  <Link to="/ux-lab" className="uxlab-chip uxlab-chip--ghost">
-                    ‹ Lab index
-                  </Link>
+                  <div className="uxlab-label">UI/UX variants</div>
+                  <p>No alternate UI matches <span className="inline-code">{p}</span>.</p>
+                  <Link to="/?demo=1" className="uxlab-chip uxlab-chip--ghost">Current UI</Link>
                 </div>
               </div>
             )}
