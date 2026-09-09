@@ -1,6 +1,7 @@
 import { Link } from '../app/router';
 import { Routes, type RouteDef } from '../app/router';
 import { RootErrorBoundary } from '../app/ErrorBoundary';
+import { useLedgerContext } from '../state/store';
 import { UxLabIndex } from './UxLabIndex';
 import { Concept1ReachDesk } from './concepts/Concept1ReachDesk';
 import { Concept2ReviewQueue } from './concepts/Concept2ReviewQueue';
@@ -22,6 +23,26 @@ const UX_LAB_ROUTES: RouteDef[] = [
  * database as the canonical app.
  */
 export function UxLabApp() {
+  const { status, error, reload } = useLedgerContext();
+
+  if (status === 'loading') {
+    return <div className="app-main"><div className="uxlab-card">Opening the shared local ledger…</div></div>;
+  }
+  if (status === 'no-indexeddb') {
+    return <div className="app-main"><div className="uxlab-card">IndexedDB is unavailable in this browser context.</div></div>;
+  }
+  if (status === 'error') {
+    return (
+      <div className="app-main">
+        <div className="uxlab-card stack">
+          <strong>Could not open the shared ledger.</strong>
+          <span>{error ?? 'Unknown database error'}</span>
+          <button className="uxlab-btn" type="button" onClick={() => void reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
       <main id="main-content" tabIndex={-1} className="app-main">
