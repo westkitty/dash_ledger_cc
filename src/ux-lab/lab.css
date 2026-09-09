@@ -1,0 +1,941 @@
+/*
+ * UX Lab styles — EXPERIMENTAL DESIGN SURFACE ONLY.
+ *
+ * Everything in this file is namespaced under `.uxlab` and is loaded only by
+ * src/ux-lab components. No production selector is modified or overridden.
+ * Tokens are reused from src/styles/tokens.css (design-system reuse, not fork).
+ *
+ * The lab renders mock data from src/ux-lab/fixtures.ts through local component
+ * state only. It never imports the store, db, or repositories.
+ */
+
+.uxlab {
+  /* lab-local tokens derived from the design system */
+  --uxlab-estimate-tint: color-mix(in srgb, var(--info) 10%, transparent);
+  --uxlab-estimate-ink: var(--info);
+  --uxlab-dock-h: 76px;
+  /* The lab renders standalone (no production bottom nav), so dock/footer
+     offsets collapse to the safe-area inset only. */
+  --nav-h: 0px;
+}
+
+/* ---------- lab chrome ------------------------------------------------- */
+
+.uxlab-chrome {
+  border: 1px dashed var(--hairline-strong);
+  border-radius: var(--radius);
+  background: var(--bg-sunken);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.uxlab-chrome__banner {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.uxlab-chrome__title {
+  margin: 4px 0 2px;
+  font-size: 1.3rem;
+  line-height: 1.2;
+}
+
+.uxlab-chrome__sub {
+  margin: 0 0 10px;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+
+.uxlab-chrome__nav {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.uxlab-chip {
+  appearance: none;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-raised);
+  color: var(--ink);
+  border-radius: var(--radius-pill);
+  padding: 7px 13px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.uxlab-chip[aria-current='page'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.uxlab-chip--ghost {
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+}
+
+/* ---------- shared bits ------------------------------------------------ */
+
+.uxlab-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+}
+
+.uxlab-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 0 0 8px;
+}
+
+.uxlab-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  padding: 3px 9px;
+}
+
+.uxlab-badge--fact {
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.uxlab-badge--estimate {
+  background: var(--uxlab-estimate-tint);
+  color: var(--uxlab-estimate-ink);
+}
+
+.uxlab-badge--warn {
+  background: var(--warn-tint);
+  color: var(--warn);
+}
+
+.uxlab-badge--review {
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+}
+
+.uxlab-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Properly stacked list rows (the fix demonstrated concept-wide). */
+.uxlab-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+  padding: 12px var(--space-1);
+  min-height: 56px;
+  cursor: pointer;
+}
+
+.uxlab-row:first-child {
+  border-top: 0;
+}
+
+.uxlab-row:active {
+  background: var(--bg-sunken);
+}
+
+.uxlab-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column; /* the actual fix: title and sub are separate lines */
+  gap: 2px;
+}
+
+.uxlab-row__title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.uxlab-row__sub {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.uxlab-row__value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+}
+
+.uxlab-row__value-sub {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+.uxlab-toast {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(var(--nav-h) + var(--safe-bottom) + 96px);
+  z-index: 58;
+  background: var(--ink);
+  color: var(--bg-raised);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  padding: 11px 18px;
+  max-width: min(92vw, 560px);
+  box-shadow: var(--shadow-2);
+}
+
+/* ---------- concept 1: Reach Desk -------------------------------------- */
+
+.uxlab-desk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* leave room for the dock + production bottom nav */
+  padding-bottom: calc(var(--uxlab-dock-h) + 24px);
+}
+
+.uxlab-weekline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.uxlab-weekline__big {
+  font-size: 1.7rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-weekline__rest {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.uxlab-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-h) + var(--safe-bottom));
+  z-index: 40; /* above page content, below production nav (60) */
+  background: var(--bg-raised);
+  border-top: 1px solid var(--hairline);
+  box-shadow: 0 -4px 16px rgba(28, 27, 25, 0.10);
+  padding: 10px var(--space-4);
+  min-height: var(--uxlab-dock-h);
+}
+
+.uxlab-dock__inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.uxlab-dock__primary {
+  flex: 1.6;
+  appearance: none;
+  border: 0;
+  border-radius: 14px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  min-height: 56px;
+  cursor: pointer;
+}
+
+.uxlab-dock__primary:active {
+  background: var(--accent-strong);
+}
+
+.uxlab-dock__primary--live {
+  background: var(--warn);
+}
+
+.uxlab-dock__primary--live:active {
+  background: var(--warn);
+  filter: brightness(0.95);
+}
+
+.uxlab-dock__aux {
+  flex: 1;
+  appearance: none;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--bg-raised);
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-height: 56px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.uxlab-dock__status {
+  max-width: var(--maxw);
+  margin: 0 auto 8px;
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.uxlab-dock__live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--warn);
+  animation: uxlab-pulse 2s ease-in-out infinite;
+}
+
+@keyframes uxlab-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uxlab-dock__live-dot {
+    animation: none;
+  }
+}
+
+.uxlab-reviewchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  background: var(--warn-tint);
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  font-weight: 650;
+  font-size: 0.9rem;
+  min-height: 40px;
+  cursor: pointer;
+}
+
+/* Lab sheet (mirrors production Sheet mechanics, lab-styled) */
+.uxlab-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: rgba(15, 18, 28, 0.45);
+  display: flex;
+  align-items: flex-end;
+}
+
+.uxlab-sheet {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  background: var(--bg-raised);
+  border-radius: 18px 18px 0 0;
+  padding: var(--space-4) var(--space-4) calc(var(--space-5) + var(--safe-bottom));
+  box-shadow: var(--shadow-2);
+}
+
+.uxlab-sheet__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.uxlab-sheet__head h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.uxlab-sheet__close {
+  border: 0;
+  background: var(--bg-sunken);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.uxlab-sheet__desc {
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+  margin: 0 0 12px;
+}
+
+.uxlab-input {
+  width: 100%;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  color: var(--ink);
+  padding: 12px;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.uxlab-fieldlabel {
+  font-weight: 650;
+  font-size: 0.92rem;
+  margin: 12px 0 6px;
+  display: block;
+}
+
+.uxlab-fieldhint {
+  font-weight: 400;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  display: block;
+  margin-top: 2px;
+}
+
+.uxlab-preview {
+  display: flex;
+  gap: var(--space-3);
+  margin-top: 14px;
+  border-top: 1px dashed var(--hairline-strong);
+  padding-top: 12px;
+}
+
+.uxlab-preview__cell {
+  flex: 1;
+}
+
+.uxlab-preview__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.uxlab-preview__lbl {
+  font-size: 0.76rem;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- concept 2: Review queue ------------------------------------ */
+
+.uxlab-queue-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uxlab-progress {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.uxlab-progress__fill {
+  height: 100%;
+  background: var(--good);
+  border-radius: var(--radius-pill);
+  transition: width 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uxlab-progress__fill {
+    transition: none;
+  }
+}
+
+.uxlab-progress__text {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.uxlab-queueitem {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.uxlab-queueitem--done {
+  opacity: 0.72;
+  background: transparent;
+  box-shadow: none;
+  border-style: dashed;
+}
+
+.uxlab-queueitem__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.uxlab-queueitem__what {
+  font-weight: 650;
+  margin: 0 0 4px;
+}
+
+.uxlab-queueitem__why {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+}
+
+.uxlab-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.uxlab-seg__btn {
+  appearance: none;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-raised);
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  min-height: 44px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.uxlab-seg__btn:active {
+  background: var(--bg-sunken);
+}
+
+.uxlab-seg__btn--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.uxlab-btn {
+  appearance: none;
+  border: 1px solid var(--hairline-strong);
+  background: var(--bg-raised);
+  color: var(--ink);
+  border-radius: 10px;
+  padding: 11px 16px;
+  font-size: 0.95rem;
+  font-weight: 650;
+  min-height: 48px;
+  cursor: pointer;
+}
+
+.uxlab-btn--primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.uxlab-btn--ghost {
+  border-color: transparent;
+  background: transparent;
+  text-decoration: underline;
+  font-weight: 550;
+}
+
+.uxlab-queueitem__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.uxlab-queueitem__defer {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+
+.uxlab-done-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+}
+
+.uxlab-emoji-free {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--accent-tint);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+/* ---------- concept 3: Week story -------------------------------------- */
+
+.uxlab-week-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.uxlab-week-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.uxlab-week-head .uxlab-sub {
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.uxlab-daystrip {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.uxlab-day {
+  appearance: none;
+  border: 1px solid var(--hairline);
+  background: var(--bg-raised);
+  border-radius: 10px;
+  padding: 8px 2px 7px;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+}
+
+.uxlab-day__lbl {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+.uxlab-day__num {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-day__miles {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-day--today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.uxlab-day--selected {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.uxlab-day--selected .uxlab-day__lbl,
+.uxlab-day--selected .uxlab-day__num,
+.uxlab-day--selected .uxlab-day__miles {
+  color: var(--accent-ink);
+}
+
+.uxlab-money-band {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.uxlab-money-band__main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.uxlab-money-band__big {
+  font-size: 2rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-money-band__split {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.uxlab-estimate-band {
+  border: 1px dashed var(--info);
+  background: var(--uxlab-estimate-tint);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.uxlab-estimate-band__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.uxlab-attention {
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--bg-raised);
+}
+
+.uxlab-attention__summary {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 0;
+  padding: 12px 14px;
+  font-weight: 650;
+  font-size: 0.94rem;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.uxlab-attention__body {
+  padding: 0 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.uxlab-attention__item {
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.uxlab-attention__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warn);
+  flex: none;
+  position: relative;
+  top: -1px;
+}
+
+.uxlab-attention__dot--info {
+  background: var(--ink-faint);
+}
+
+.uxlab-week-footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--nav-h) + var(--safe-bottom));
+  z-index: 40;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--hairline);
+  box-shadow: 0 -4px 16px rgba(28, 27, 25, 0.10);
+  padding: 10px var(--space-4);
+}
+
+.uxlab-week-footer__inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.uxlab-week-footer__note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  max-width: var(--maxw);
+  margin: 6px auto 0;
+}
+
+.uxlab-week-body {
+  padding-bottom: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ---------- concept 4: Year glance ------------------------------------- */
+
+.uxlab-year-hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.uxlab-year-hero__cell {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: 12px 14px;
+}
+
+.uxlab-year-hero__cell--estimate {
+  border: 1px dashed var(--info);
+  background: var(--uxlab-estimate-tint);
+}
+
+.uxlab-year-hero__num {
+  font-size: 1.45rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.uxlab-year-hero__sub {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+
+.uxlab-metric-switch {
+  display: flex;
+  gap: 7px;
+}
+
+.uxlab-chart {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  align-items: end;
+  height: 150px;
+  padding-top: 6px;
+}
+
+.uxlab-chart__col {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+
+.uxlab-chart__bar {
+  background: var(--accent-tint);
+  border-radius: 4px 4px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uxlab-chart__bar {
+    transition: none;
+  }
+}
+
+.uxlab-chart__col--sel .uxlab-chart__bar {
+  background: var(--accent);
+}
+
+.uxlab-chart__axis {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.uxlab-chart__axis span {
+  text-align: center;
+  font-size: 0.66rem;
+  color: var(--ink-faint);
+}
+
+.uxlab-chart-detail {
+  margin-top: 12px;
+  border-top: 1px dashed var(--hairline-strong);
+  padding-top: 10px;
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.uxlab-chart-detail__cell .uxlab-preview__num {
+  font-size: 1rem;
+}
+
+.uxlab-vs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--bg-raised);
+  padding: 10px 12px;
+  font-size: 0.88rem;
+}
+
+.uxlab-vs strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.uxlab-months .uxlab-row {
+  border-top: 1px solid var(--hairline);
+}
+
+.uxlab-months .uxlab-row:first-child {
+  border-top: 0;
+}
+
+.uxlab-monthdetail {
+  padding: 2px 2px 12px;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
