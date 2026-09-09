@@ -134,7 +134,9 @@ analogue), **LubeLogger** and the open-source local-first tracker landscape.
   integer-cent money; per-dialect legacy recovery with a permanent `$96.50`
   regression; two-step safety-backup restore; receipt original-byte survival;
   standalone offline Tax Binder; a deterministic 249-test domain; runs from any
-  static host or `file://` forever.
+  static HTTP(S) host, forever. (An earlier draft said "or `file://`" — the
+  post-merge reproducibility pass corrected that: the Vite ES-module + PWA build
+  needs an HTTP(S) origin. See `BUILD_REPRODUCIBILITY.md`.)
 - **Obvious gain implemented:** a **unified "Needs review" surface** — the
   review-queue pattern every analogue centres on, built as pure snapshot
   aggregation across the whole ledger (`pendingReview`), rendered as one Desk

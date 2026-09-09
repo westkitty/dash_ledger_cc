@@ -165,39 +165,64 @@ read (through the import adapters) but never written again.
 
 ## Getting started
 
-Requires Node 18+ (developed on Node 22/26). `bun` or `npm` both work.
+**Toolchain contract** — the authoritative lockfile is **`bun.lock`**
+(`package.json` declares `"packageManager": "bun@1.3.12"`). The build tools
+(Vite, Vitest, `tsc`, ESLint) run on **Node.js ≥ 20.19** (`.nvmrc` pins Node 22;
+developed and CI-tested on 22 and 26).
+
+Reproducible bootstrap:
 
 ```bash
-bun install          # or: npm install
-bun run dev           # Vite dev server
+bun install --frozen-lockfile   # install exactly what bun.lock pins
+bun run dev                      # Vite dev server (or: npm run dev)
 ```
+
+A plain `bun install` (or `npm install`) also works for casual development, but
+only `--frozen-lockfile` is guaranteed reproducible. Do not add a second
+lockfile — `npm install` would generate a `package-lock.json` that competes with
+`bun.lock`; if you run it, don't commit the result.
 
 ### Commands
 
+Scripts run identically under `bun run <script>` or `npm run <script>`.
+
 | Command | What it does |
 |---|---|
-| `npm run dev` | Dev server with HMR |
-| `npm run typecheck` | `tsc -b` project references, no emit |
-| `npm run lint` | ESLint, zero warnings allowed |
-| `npm run test` | Vitest run (unit + IndexedDB integration via `fake-indexeddb`) |
-| `npm run build` | `tsc -b && vite build` → static output in `dist/` |
-| `npm run preview` | Serve the production build locally |
-| `node scripts/gen-icons.mjs` | Regenerate PWA icons |
+| `bun run dev` | Dev server with HMR |
+| `bun run typecheck` | `tsc -b` project references, no emit |
+| `bun run lint` | ESLint, zero warnings allowed |
+| `bun run test` | Vitest run (unit + IndexedDB integration via `fake-indexeddb`) |
+| `bun run build` | `tsc -b && vite build` → static output in `dist/` |
+| `bun run preview` | Serve the production build locally over HTTP |
+| `node scripts/gen-icons.mjs` | Regenerate the committed PWA icons (not part of the build) |
+
+CI (`.github/workflows/ci.yml`) runs typecheck + lint + full Vitest + build on
+every push to `main` and every PR, re-runs Vitest under `TZ=Pacific/Kiritimati`
+and `TZ=Pacific/Midway`, and uploads `dist/` as a build artifact. It never
+deploys. See [`BUILD_REPRODUCIBILITY.md`](BUILD_REPRODUCIBILITY.md) and
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
 
 ---
 
 ## Deployment / static hosting
 
-`npm run build` produces `dist/` as ordinary static files. Host it anywhere that
-serves static content.
+`bun run build` produces `dist/` as ordinary static files. Host it on any
+static **HTTP(S)** server. Full deployment guidance — secure-context rules, the
+browser-origin data model, moving between hosts, and rollback — is in
+[`DEPLOYMENT.md`](DEPLOYMENT.md).
 
+- **HTTP(S) only.** The build's entry is an ES-module script and the PWA layer
+  needs a secure context, so `dist/index.html` opened directly from `file://`
+  will **not** run (module scripts are CORS-blocked and no service worker
+  registers). `localhost` and any `https://` origin are fine.
 - **Base path** is `./` (relative), so it works from a sub-path such as
   `https://user.github.io/dash_ledger_cc/`.
 - **Routing** is hash-based (`#/week`, `#/start`, …), so no SPA rewrite rule is
   needed. The service worker also registers a navigation fallback to
   `index.html`.
-- **GitHub Pages:** publish the contents of `dist/` (e.g. via an action or the
-  `docs/` folder pattern). No server configuration required.
+- **Static hosts** (GitHub Pages, Netlify, S3+CloudFront, nginx, …): publish the
+  contents of `dist/`. No server configuration required. This repository does
+  not deploy anywhere itself.
 
 ---
 

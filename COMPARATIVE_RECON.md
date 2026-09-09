@@ -37,7 +37,7 @@ implemented in this phase.
 
 | Strength | Detail |
 |---|---|
-| True local-first | No account, server, telemetry, cloud DB, or remote font/CDN. Runs from any static host or `file://`. Only GigClaim is comparably private, and it is iOS-native only. **[DF]** |
+| True local-first | No account, server, telemetry, cloud DB, or remote font/CDN. Runs from any ordinary static HTTP(S) host (not `file://` — see the post-merge `BUILD_REPRODUCIBILITY.md`). Only GigClaim is comparably private, and it is iOS-native only. **[DF]** |
 | Factual integrity | Never invents money, never turns missing → `$0.00`, never clamps mileage, never auto-corrects a suspicious value, never guesses a conflicting legacy amount. Enforced in the domain + repository layers, 245+ tests. |
 | Integer-cent money | One owning module; float money cannot enter storage. |
 | Legacy recovery | Per-dialect import adapters (original app / earlier cc build / Grok), hybrid-record conflict reporting, `$96.50 → 9650 cents` permanent regression fixture. |
@@ -106,8 +106,10 @@ implemented in this phase.
 4. **Recoverability** — two-step safety-backup restore, reversible deletes,
    original-byte receipt survival, standalone Tax Binder. Not emphasised anywhere
    in the competitor set. **[INF]**
-5. **Runs anywhere and forever** — static files, any host, `file://`, offline,
-   no server to keep alive (contrast LubeLogger's self-hosted server). **[DF]**
+5. **Runs anywhere and forever** — static files, any ordinary static HTTP(S)
+   host, offline after first load, no server to keep alive (contrast
+   LubeLogger's self-hosted server). *(Not `file://` — corrected post-merge; see
+   `BUILD_REPRODUCIBILITY.md`.)* **[DF]**
 6. **Auditable correctness** — 245+ deterministic tests over the money/date/
    mileage/rate/aggregation logic. **[DF]**
 
@@ -227,8 +229,8 @@ synthetic multi-week data.
 - **Potential benefit:** removes the slowest part of classifying a receipt.
 - **Why not automatic:** a WASM OCR engine is a large dependency (often >2 MB)
   and either bloats the install or needs a network model fetch — both violate the
-  "3 dependencies, nothing leaves the device, works offline from `file://`"
-  constraints. Accuracy on crumpled thermal receipts is also poor **[RE]**.
+  "3 dependencies, nothing leaves the device, works offline from any static
+  host" constraints. Accuracy on crumpled thermal receipts is also poor **[RE]**.
 - **Architecture / privacy cost:** dependency-graph growth; possible model
   download; CPU/battery on capture.
 - **Smallest future experiment:** vendor a single pinned WASM build behind a lazy

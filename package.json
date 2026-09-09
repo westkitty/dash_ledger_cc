@@ -5,6 +5,10 @@
   "type": "module",
   "description": "Dash Ledger - a local-first, mobile-first DoorDash work ledger.",
   "license": "MIT",
+  "packageManager": "bun@1.3.12",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

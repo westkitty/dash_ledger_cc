@@ -193,7 +193,7 @@ None is required for the currently promised product; all remain **OPTIONAL FUTUR
 
 | Idea | Status | Why not required now |
 |---|---|---|
-| Client-side receipt OCR | OPTIONAL FUTURE | The product promises camera/file capture + an Inbox + manual classification — a complete workflow. OCR is never claimed. A WASM engine would break the "3 deps / nothing leaves the device / works from `file://`" constraints. |
+| Client-side receipt OCR | OPTIONAL FUTURE | The product promises camera/file capture + an Inbox + manual classification — a complete workflow. OCR is never claimed. A WASM engine would break the "3 deps / nothing leaves the device / any static host" constraints. |
 | Per-record edit history | OPTIONAL FUTURE | No change-log is promised. Editing recalculates derived values and the Phase-4 "changed since review" signal already covers the highest-value case (a reviewed week that moved). |
 | `#/start?auto=1` one-tap shortcut | OPTIONAL FUTURE | The documented promise is "a stable hash link straight to Start Dash" — the existing `#/start` link (copied from Settings) fulfils it; with a vehicle it is 2 taps. A one-tap auto-start needs an idempotency proof against the single-active-dash rule. |
 | Manual multi-platform earnings per dash | OPTIONAL FUTURE | The product is scoped as "a DoorDash work ledger" (app earnings + cash tips). Multi-platform is outside the stated scope and is a data-model + backup-schema + Tax Binder change. |
