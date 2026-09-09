@@ -60,12 +60,29 @@ export function applyThemeToDocument(theme: ThemeChoice): void {
   }
 }
 
+/**
+ * Cross-tab change notification. When one tab mutates the ledger, others reload
+ * their snapshot so a stale tab doesn't silently show old numbers. Best effort:
+ * `BroadcastChannel` is feature-detected and its absence is harmless — the
+ * repository transactions, not this, are what protect data truth.
+ */
+const CHANGE_CHANNEL = 'dash-ledger:changed';
+function makeChangeChannel(): BroadcastChannel | null {
+  try {
+    if (typeof BroadcastChannel === 'function') return new BroadcastChannel(CHANGE_CHANNEL);
+  } catch {
+    /* not supported */
+  }
+  return null;
+}
+
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [error, setError] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState<LedgerSnapshot | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const toastSeq = useRef(1);
+  const channelRef = useRef<BroadcastChannel | null>(null);
 
   const reload = useCallback(async () => {
     if (!indexedDBAvailable()) {
@@ -86,6 +103,17 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void reload();
+  }, [reload]);
+
+  // Another tab changed the ledger -> refresh our snapshot.
+  useEffect(() => {
+    const channel = makeChangeChannel();
+    channelRef.current = channel;
+    if (channel) channel.onmessage = () => void reload();
+    return () => {
+      channel?.close();
+      channelRef.current = null;
+    };
   }, [reload]);
 
   // Keep the theme applied whenever settings change.
@@ -113,6 +141,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       try {
         const result = await fn();
         await reload();
+        try {
+          channelRef.current?.postMessage('changed');
+        } catch {
+          /* channel closed / unsupported */
+        }
         if (opts?.success && !opts.silent) pushToast(opts.success);
         return result;
       } catch (err) {

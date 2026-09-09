@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLedger, useLedgerContext } from '../../state/store';
 import { useRouter } from '../../app/router';
 import { startShift } from '../../db/repositories';
@@ -32,6 +32,13 @@ export function StartDashScreen() {
   // Keep the odometer prefill in step with vehicle changes until the user edits it.
   const [odoTouched, setOdoTouched] = useState(false);
   const effectiveOdo = odoTouched ? startOdo : suggestion != null ? String(suggestion) : startOdo;
+
+  // Deep-linked here (e.g. an Apple Shortcut) with no vehicle yet: hand off to
+  // the Desk, whose Start Dash sheet chains vehicle creation into the flow.
+  const noVehicle = activeVehicles.length === 0;
+  useEffect(() => {
+    if (noVehicle && !activeShift) navigate('/', { replace: true });
+  }, [noVehicle, activeShift, navigate]);
 
   if (activeShift) {
     return (

@@ -216,6 +216,23 @@ describe('recovery route', () => {
   });
 });
 
+describe('shell accessibility & deep-link fallbacks', () => {
+  it('a skip link moves focus to the main content region', async () => {
+    renderApp();
+    await findStartButton();
+    const skip = screen.getByRole('button', { name: /skip to main content/i });
+    fireEvent.click(skip);
+    expect(document.activeElement?.id).toBe('main-content');
+  });
+
+  it('/start with no vehicle hands off to the Desk (which chains vehicle creation)', async () => {
+    window.location.hash = '#/start';
+    renderApp();
+    await waitFor(() => expect(window.location.hash).toBe('#/'));
+    expect(await findStartButton()).toBeTruthy();
+  });
+});
+
 describe('discarding an active dash', () => {
   beforeEach(async () => {
     await createVehicle('Prius');

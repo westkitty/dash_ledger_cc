@@ -810,6 +810,33 @@ body.body--active {
   border: 0;
 }
 
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  transform: translateY(-120%);
+  margin: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+  outline: 3px solid var(--accent-ink);
+  outline-offset: -3px;
+}
+
+.app-main:focus {
+  outline: none;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

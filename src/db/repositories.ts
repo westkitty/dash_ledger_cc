@@ -191,6 +191,15 @@ export async function createVehicle(label: string): Promise<Vehicle> {
 export async function updateVehicle(id: string, patch: Partial<Pick<Vehicle, 'label' | 'archived'>>): Promise<void> {
   const db = getDB();
   await db.vehicles.update(id, { ...patch, updatedAt: nowIso() });
+  // An archived vehicle must not stay the default — it would be unselectable for
+  // a new dash. Hand the default to another active vehicle, or clear it.
+  if (patch.archived === true) {
+    const settings = await getSettings();
+    if (settings.defaultVehicleId === id) {
+      const nextDefault = (await db.vehicles.toArray()).find((v) => !v.archived && v.id !== id);
+      await saveSettings({ defaultVehicleId: nextDefault?.id ?? null });
+    }
+  }
   await touchRecordChange();
 }
 

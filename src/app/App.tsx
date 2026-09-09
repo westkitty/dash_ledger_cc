@@ -116,9 +116,24 @@ export function App() {
 
   return (
     <div className="app-shell">
+      <button
+        type="button"
+        className="skip-link"
+        onClick={() => {
+          const el = document.getElementById('main-content');
+          el?.focus();
+          if (typeof el?.scrollIntoView === 'function') el.scrollIntoView();
+        }}
+      >
+        Skip to main content
+      </button>
       <UpdateBanner />
       <OnRoadBar />
-      <main className={`app-main ${activeShift && path === '/' ? 'app-main--active' : ''}`}>
+      <main
+        id="main-content"
+        tabIndex={-1}
+        className={`app-main ${activeShift && path === '/' ? 'app-main--active' : ''}`}
+      >
         <RootErrorBoundary scope={path} key={path}>
           <Routes
             routes={ROUTES}
