@@ -6,17 +6,18 @@
   "project_id": "dash-ledger-cc",
   "project_name": "Dash Ledger",
   "project_root": ".",
-  "artifact_path": ".github/workflows/pages.yml",
-  "state_revision": 2,
+  "artifact_path": ".",
+  "state_revision": 3,
   "last_updated": "2026-09-09",
   "current_baseline": {
-    "identity": "main@a4f5a981421b423959ee0a638a8a07faf9d71795",
+    "identity": "main@78c065fb8118b0a611dab294ea125268415b9218",
     "state": "implemented-unverified",
     "last_verified": "2026-09-09"
   },
   "scope_boundaries": [
     "Canonical westkitty/dash_ledger_cc repository only",
-    "GitHub Pages delivery configuration and directly affected deployment evidence"
+    "GitHub Pages delivery and canonical application behavior",
+    "Isolated synthetic UI/UX demo lab under #/ux-lab"
   ],
   "linked_parent_state": null
 }
@@ -30,21 +31,24 @@
 - **Primary root or artifact:** repository root (`westkitty/dash_ledger_cc`).
 - **Target environment:** HTTPS static hosting; mobile Safari / iPhone Home Screen is an explicit test target; ordinary modern mobile and desktop browsers remain supported.
 - **Canonical authority:** `main` in `westkitty/dash_ledger_cc`.
-- **Governed scope:** Canonical app source, build/deployment configuration, and user-path evidence directly affected by deployment changes.
+- **Governed scope:** Canonical app source, build/deployment configuration, user-path evidence, and the isolated UI/UX demo lab.
 - **Explicitly not governed:** legacy `westkitty/DASH_LEDGER` and `westkitty/dash_ledger_grok` implementations except as recovery/import sources.
 
 ## 2. Current Baseline
 
-- **Primary artifact:** `main@a4f5a981421b423959ee0a638a8a07faf9d71795`.
-- **Baseline state:** Pages workflow implemented; first deployment workflow run is executing and has not yet established live delivery.
+- **Primary artifact:** `main@78c065fb8118b0a611dab294ea125268415b9218`.
+- **Baseline state:** Four synthetic UI/UX redesign demos and a five-position comparison switcher are merged to canonical `main`; Pages deployment from this main revision has started but live delivery of this revision remains unverified.
 - **Source/build/install identity:** Bun 1.3.12; Node pinned by `.nvmrc`; `bun.lock` is authoritative.
 - **Active default user route:** the Desk (`#/`).
-- **Delivery state:** `.github/workflows/pages.yml` now builds and attempts GitHub Pages deployment from canonical `main`; live deployment remains unverified.
+- **Demo entry route:** canonical UI with switcher is `#/?demo=1`; concepts are `#/ux-lab/1?demo=1` through `#/ux-lab/4?demo=1`.
+- **Delivery state:** `.github/workflows/pages.yml` builds and deploys generated `dist/` from canonical `main`.
 - **Last verified baseline:** 2026-09-09.
 
 ## 3. Artifact Contract
 
 Dash Ledger must remain a static, local-first PWA. Deployment may publish only the generated `dist/` app over HTTPS. Deployment must not introduce an account system, backend, telemetry, remote database, runtime CDN dependency, committed `dist/`, or any mutation of browser-held user data. GitHub Pages delivery must preserve the existing relative-base/hash-routing/PWA model and must not replace the existing read-only CI workflow.
+
+The UI/UX lab is a demonstration surface only. It must use synthetic fixtures/local component state and must remain structurally outside `LedgerProvider`, so entering `#/ux-lab/*` never constructs the canonical ledger store or reads/writes production IndexedDB data. The normal app must remain unchanged when comparison mode is not explicitly entered.
 
 ## 4. Active Invariants
 
@@ -55,33 +59,38 @@ Dash Ledger must remain a static, local-first PWA. Deployment may publish only t
 - **INV-005 — CI separation:** `.github/workflows/ci.yml` stays read-only and continues validation independently; deployment gets only the GitHub Pages permissions it requires.
 - **INV-006 — Deploy from canonical main:** only `main` may publish the Greyson test build by default; pull requests must not publish production Pages state.
 - **INV-007 — User-data rollback boundary:** code rollback means redeploying code; never delete IndexedDB as a deployment rollback mechanism.
+- **INV-008 — UX lab isolation:** `#/ux-lab/*` renders outside `LedgerProvider`; synthetic lab data must never use canonical database/store/repository code.
+- **INV-009 — Normal UI remains normal:** the comparison switcher is opt-in on the canonical app via `?demo=1`; ordinary `#/` does not show demo chrome.
 
 ## 5. Verified Working Behavior
 
-- **VER-001:** Canonical source passed the completed release gate: 252/252 tests, extreme-timezone test reruns, typecheck, lint, build, and production runtime journeys.
+- **VER-001:** Canonical source passed the completed release gate: 252/252 tests, extreme-timezone test reruns, typecheck, lint, build, and production runtime journeys before the UX demo integration.
 - **VER-002:** Production PWA shell and IndexedDB data continued working after the preview server was stopped during the release gate.
 - **VER-003:** The repository has a reproducible clean-clone build contract and a read-only GitHub Actions CI workflow.
 - **VER-004:** Current source includes iPhone/PWA affordances: `viewport-fit=cover`, Apple web-app metadata, Apple touch icon, portrait manifest, safe-area handling, and feature-detected browser APIs.
-- **VER-005:** First Pages workflow run successfully checked out canonical main, configured Node/Bun, installed with the frozen lockfile, and completed typecheck successfully before this state snapshot.
+- **VER-005:** Pages workflow is installed on canonical `main` and has successfully run its clean-runner bootstrap/typecheck path previously.
+- **VER-006:** PR #2 for the five-mode demo switcher was mergeable; PR CI on head `b6cd15aacca3ed889166f47b6785bc27e770e9ec` passed typecheck, lint, unit/integration tests, and both extreme-timezone Vitest jobs before merge. Production build was still running at the merge snapshot.
 
 ## 6. Known Not Working
 
-No confirmed deployment-specific defect is recorded at this revision.
+No confirmed defect is recorded for the demo switcher or Pages delivery at this revision.
 
 ## 7. Implemented but Unverified
 
 - **UNV-001:** Physical iPhone/Safari Add to Home Screen behavior, real iOS Web Share/download delivery, storage eviction behavior, and Safari-specific IndexedDB timing remain device-unverified.
-- **UNV-002:** Dedicated GitHub Pages workflow exists on `main` at `.github/workflows/pages.yml`, but its first run has not yet completed deployment.
+- **UNV-002:** Live Pages delivery of `main@78c065fb8118b0a611dab294ea125268415b9218` is in progress and not yet verified from the live origin.
+- **UNV-003:** Five-mode comparison behavior exists in source: Current + Reach Desk + Resolve + Week as a story + Year at a glance. Live Pages switching and mobile touch layout remain unverified on the deployed origin.
 
 ## 8. Unknown or Evidence-Stale State
 
-- **UNK-001:** Whether GitHub Pages is already enabled with **Source: GitHub Actions** cannot be read or changed through the current connector surface; the workflow's Configure/Deploy steps will expose this if not configured.
+- **UNK-001:** Exact live-origin behavior for the newly merged demo revision is unknown until the current Pages run completes and the live route is exercised.
 
 ## 9. Pending Work
 
-- **PND-001:** First Pages workflow run must complete build/package/configure/deploy before live delivery can be promoted to verified.
-- **PND-002:** If the workflow reports Pages is not enabled, set repository **Settings → Pages → Source → GitHub Actions** and rerun the workflow.
-- **PND-003:** Verify the live Pages URL, service-worker control/offline reload, navigation, persistence, and iPhone Home Screen install on Greyson's device.
+- **PND-001:** Confirm the Pages run for the current main revision completes successfully.
+- **PND-002:** Smoke-test `#/?demo=1` on the live Pages origin and verify Current / 1 / 2 / 3 / 4 switching.
+- **PND-003:** Verify a lab route does not open or mutate the canonical IndexedDB on the live build.
+- **PND-004:** Verify the comparison selector on Greyson's iPhone/Safari viewport and confirm the ordinary `#/` route remains free of demo chrome.
 
 ## 10. Active Decisions, Defaults, and Prohibitions
 
@@ -89,36 +98,44 @@ No confirmed deployment-specific defect is recorded at this revision.
 - **DEC-002:** Keep the existing portable `base: './'`; do not change Vite/PWA routing merely to satisfy provider convention without observed failure.
 - **DEC-003:** Pages deployment is a separate workflow; do not grant write permissions to the existing validation CI.
 - **DEC-004:** Publish generated `dist/` only; never commit `dist/` or create a `gh-pages` source branch for this path.
-- **DEC-005:** No custom domain, authentication layer, TestFlight/native wrapper, or application feature change is part of this task.
+- **DEC-005:** No custom domain, authentication layer, TestFlight/native wrapper, or backend is part of this test delivery path.
+- **DEC-006:** The four redesigns are demo concepts, not production data migrations. Preserve synthetic/local-state behavior until a concept is deliberately selected for production implementation.
+- **DEC-007:** The five-mode selector is for explicit comparison sessions; do not expose it during ordinary use without `?demo=1`.
 
 ## 11. Validation and Evidence Matrix
 
 | ID | Claim or behavior | State | Evidence | Validation method | Artifact/revision | Last checked | Recheck trigger |
 |---|---|---|---|---|---|---|---|
-| VER-001 | Canonical application regression suite/build is green | verified | Release gate + CI records | tests/typecheck/lint/build | pre-Pages app source | 2026-09-09 | application/config change |
-| VER-002 | PWA shell/data operate offline | verified | Release gate runtime | server-down reload + IndexedDB write | pre-Pages app source | 2026-09-09 | PWA config change |
-| VER-005 | Pages workflow bootstrap + typecheck | verified | Actions run 34379263543 | clean GitHub runner | main@a4f5a98 | 2026-09-09 | workflow change |
-| UNV-002 | GitHub Pages live deployment | implemented-unverified | `.github/workflows/pages.yml`; run in progress | successful deploy job + live URL | main@a4f5a98 | 2026-09-09 | run completion |
+| VER-001 | Canonical application regression suite/build was green before UX lab merge | verified | Release gate + CI records | tests/typecheck/lint/build | pre-demo main | 2026-09-09 | application/config change |
+| VER-002 | PWA shell/data operate offline | verified | Release gate runtime | server-down reload + IndexedDB write | pre-demo main | 2026-09-09 | PWA config change |
+| VER-006 | Demo integration typechecks/lints/tests across normal + extreme timezones | partially-verified | PR CI run 34387366243 | GitHub-hosted runners | b6cd15a | 2026-09-09 | demo source change |
+| UNV-002 | Current main Pages deployment | implemented-unverified | Deploy GitHub Pages run 34387448570 queued/started | successful deploy + live origin | main@78c065f | 2026-09-09 | run completion |
+| UNV-003 | Five-position switcher works on live Pages | implemented-unverified | source + PR CI | live route interaction | main@78c065f | 2026-09-09 | deployment completion |
 | UNV-001 | Physical iPhone installed-web-app journey | implemented-unverified | source portability audit only | real Safari + Add to Home Screen | current main | 2026-09-09 | first iPhone field test |
-| UNK-001 | Pages source configured to GitHub Actions | unknown | connector cannot inspect Pages admin endpoint | repository Settings / workflow outcome | current repo | 2026-09-09 | Configure Pages step |
 
 ## 12. Current Change Scope and Impact Radius
 
-- **Allowed to change:** `OPERATIONAL_STATE.md` and `.github/workflows/pages.yml` only for this bounded deployment task.
-- **Must remain unchanged:** application/domain/data code, `vite.config.ts`, `bun.lock`, `package.json`, existing `.github/workflows/ci.yml`, database identity, backup formats, imports, and user-facing workflows.
-- **Potentially affected behavior:** static build delivery, PWA registration/scope, asset paths, live HTTPS origin, and update behavior.
-- **Mandatory checks:** clean build through the workflow; Pages artifact contains expected `dist/` files; successful Pages deployment when repository Pages source is enabled; live smoke test after deployment.
-- **Checks deliberately reused:** existing release-gate application regression evidence remains valid because no application source, build configuration, database, or PWA configuration was changed.
-- **Repair class:** bounded deployment configuration.
+- **Allowed to change for the demo comparison milestone:** `src/ux-lab/**`, the bounded root switch in `src/main.tsx`, lab documentation/evidence, and `OPERATIONAL_STATE.md`.
+- **Must remain unchanged without a separate production redesign decision:** domain/data model, canonical database identity, backup formats, import/recovery semantics, ordinary production route behavior, `vite.config.ts`, `bun.lock`, and Pages/CI security boundaries.
+- **Potentially affected behavior:** root render selection, lab routing, comparison navigation, bottom-edge mobile overlay, production build size, and Pages delivery.
+- **Mandatory checks:** typecheck, lint, tests, build, hash-route switching, ordinary `#/` without demo chrome, live Pages smoke test, and lab IndexedDB isolation.
+- **Repair class:** bounded UI demo integration; not a production redesign adoption.
 
 ## 13. Compact Revision Log
+
+### Revision 3 — 2026-09-09
+
+- **Artifact/source identity:** `main@78c065fb8118b0a611dab294ea125268415b9218`.
+- **State deltas:** Integrated the four-concept synthetic UI/UX lab and added an opt-in five-position comparison selector (Current + concepts 1–4). Added explicit lab-isolation and normal-route invariants.
+- **New evidence:** PR #2 CI passed typecheck, lint, unit/integration tests, and both extreme-timezone jobs before merge; Pages and main CI runs started from the merge commit.
+- **Validation not performed:** live Pages interaction, deployed lab IndexedDB isolation, and physical iPhone comparison session remain unverified.
 
 ### Revision 2 — 2026-09-09
 
 - **Artifact/source identity:** `main@a4f5a981421b423959ee0a638a8a07faf9d71795`.
 - **State deltas:** Added dedicated GitHub Pages workflow; first Actions run started automatically. No application code or existing CI changed.
-- **New evidence:** Clean runner checkout/setup/frozen install and typecheck succeeded; remaining build/deploy steps are still executing at this snapshot.
-- **Validation not performed:** Live Pages URL and physical iPhone installation remain unverified.
+- **New evidence:** Clean runner checkout/setup/frozen install and typecheck succeeded; remaining build/deploy steps were still executing at that snapshot.
+- **Validation not performed:** Live Pages URL and physical iPhone installation remained unverified.
 
 ### Revision 1 — 2026-09-09
 
