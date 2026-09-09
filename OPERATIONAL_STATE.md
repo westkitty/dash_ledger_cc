@@ -7,11 +7,11 @@
   "project_name": "Dash Ledger",
   "project_root": ".",
   "artifact_path": ".github/workflows/pages.yml",
-  "state_revision": 1,
+  "state_revision": 2,
   "last_updated": "2026-09-09",
   "current_baseline": {
-    "identity": "main@fe5ba57b95b82e2fe23e33a6b69ddbf57645e4c1",
-    "state": "verified",
+    "identity": "main@a4f5a981421b423959ee0a638a8a07faf9d71795",
+    "state": "implemented-unverified",
     "last_verified": "2026-09-09"
   },
   "scope_boundaries": [
@@ -35,11 +35,11 @@
 
 ## 2. Current Baseline
 
-- **Primary artifact:** `main@fe5ba57b95b82e2fe23e33a6b69ddbf57645e4c1`.
-- **Baseline state:** Verified source/build baseline from the completed release, reproducibility, CI, and deployment-hardening passes.
+- **Primary artifact:** `main@a4f5a981421b423959ee0a638a8a07faf9d71795`.
+- **Baseline state:** Pages workflow implemented; first deployment workflow run is executing and has not yet established live delivery.
 - **Source/build/install identity:** Bun 1.3.12; Node pinned by `.nvmrc`; `bun.lock` is authoritative.
 - **Active default user route:** the Desk (`#/`).
-- **Delivery state:** Static `dist/` build is supported over HTTP(S); repository does not yet contain a Pages deployment workflow at this baseline.
+- **Delivery state:** `.github/workflows/pages.yml` now builds and attempts GitHub Pages deployment from canonical `main`; live deployment remains unverified.
 - **Last verified baseline:** 2026-09-09.
 
 ## 3. Artifact Contract
@@ -62,6 +62,7 @@ Dash Ledger must remain a static, local-first PWA. Deployment may publish only t
 - **VER-002:** Production PWA shell and IndexedDB data continued working after the preview server was stopped during the release gate.
 - **VER-003:** The repository has a reproducible clean-clone build contract and a read-only GitHub Actions CI workflow.
 - **VER-004:** Current source includes iPhone/PWA affordances: `viewport-fit=cover`, Apple web-app metadata, Apple touch icon, portrait manifest, safe-area handling, and feature-detected browser APIs.
+- **VER-005:** First Pages workflow run successfully checked out canonical main, configured Node/Bun, installed with the frozen lockfile, and completed typecheck successfully before this state snapshot.
 
 ## 6. Known Not Working
 
@@ -70,15 +71,16 @@ No confirmed deployment-specific defect is recorded at this revision.
 ## 7. Implemented but Unverified
 
 - **UNV-001:** Physical iPhone/Safari Add to Home Screen behavior, real iOS Web Share/download delivery, storage eviction behavior, and Safari-specific IndexedDB timing remain device-unverified.
+- **UNV-002:** Dedicated GitHub Pages workflow exists on `main` at `.github/workflows/pages.yml`, but its first run has not yet completed deployment.
 
 ## 8. Unknown or Evidence-Stale State
 
-- **UNK-001:** Whether GitHub Pages is already enabled with **Source: GitHub Actions** cannot be read or changed through the current connector surface.
+- **UNK-001:** Whether GitHub Pages is already enabled with **Source: GitHub Actions** cannot be read or changed through the current connector surface; the workflow's Configure/Deploy steps will expose this if not configured.
 
 ## 9. Pending Work
 
-- **PND-001:** Add a dedicated GitHub Pages workflow that builds canonical `main` with the existing Bun contract, uploads only `dist/`, and deploys via the `github-pages` environment.
-- **PND-002:** If Pages is not already enabled, set repository **Settings → Pages → Source → GitHub Actions**.
+- **PND-001:** First Pages workflow run must complete build/package/configure/deploy before live delivery can be promoted to verified.
+- **PND-002:** If the workflow reports Pages is not enabled, set repository **Settings → Pages → Source → GitHub Actions** and rerun the workflow.
 - **PND-003:** Verify the live Pages URL, service-worker control/offline reload, navigation, persistence, and iPhone Home Screen install on Greyson's device.
 
 ## 10. Active Decisions, Defaults, and Prohibitions
@@ -93,25 +95,34 @@ No confirmed deployment-specific defect is recorded at this revision.
 
 | ID | Claim or behavior | State | Evidence | Validation method | Artifact/revision | Last checked | Recheck trigger |
 |---|---|---|---|---|---|---|---|
-| VER-001 | Canonical application regression suite/build is green | verified | Release gate + CI records | tests/typecheck/lint/build | main@fe5ba57 | 2026-09-09 | source/config change |
-| VER-002 | PWA shell/data operate offline | verified | Release gate runtime | server-down reload + IndexedDB write | release candidate/main lineage | 2026-09-09 | PWA/deploy config change |
+| VER-001 | Canonical application regression suite/build is green | verified | Release gate + CI records | tests/typecheck/lint/build | pre-Pages app source | 2026-09-09 | application/config change |
+| VER-002 | PWA shell/data operate offline | verified | Release gate runtime | server-down reload + IndexedDB write | pre-Pages app source | 2026-09-09 | PWA config change |
+| VER-005 | Pages workflow bootstrap + typecheck | verified | Actions run 34379263543 | clean GitHub runner | main@a4f5a98 | 2026-09-09 | workflow change |
+| UNV-002 | GitHub Pages live deployment | implemented-unverified | `.github/workflows/pages.yml`; run in progress | successful deploy job + live URL | main@a4f5a98 | 2026-09-09 | run completion |
 | UNV-001 | Physical iPhone installed-web-app journey | implemented-unverified | source portability audit only | real Safari + Add to Home Screen | current main | 2026-09-09 | first iPhone field test |
-| UNK-001 | Pages source configured to GitHub Actions | unknown | connector cannot inspect Pages admin endpoint | repository Settings | current repo | 2026-09-09 | deployment attempt/manual check |
+| UNK-001 | Pages source configured to GitHub Actions | unknown | connector cannot inspect Pages admin endpoint | repository Settings / workflow outcome | current repo | 2026-09-09 | Configure Pages step |
 
 ## 12. Current Change Scope and Impact Radius
 
-- **Allowed to change:** `OPERATIONAL_STATE.md` and a dedicated `.github/workflows/pages.yml` Pages workflow.
+- **Allowed to change:** `OPERATIONAL_STATE.md` and `.github/workflows/pages.yml` only for this bounded deployment task.
 - **Must remain unchanged:** application/domain/data code, `vite.config.ts`, `bun.lock`, `package.json`, existing `.github/workflows/ci.yml`, database identity, backup formats, imports, and user-facing workflows.
 - **Potentially affected behavior:** static build delivery, PWA registration/scope, asset paths, live HTTPS origin, and update behavior.
-- **Mandatory checks:** workflow syntax/contents inspection; clean build through the workflow; Pages artifact contains expected `dist/` files; successful Pages deployment when repository Pages source is enabled; live smoke test after deployment.
-- **Checks deliberately reused:** existing release-gate application regression evidence remains valid because this task must not alter application code.
+- **Mandatory checks:** clean build through the workflow; Pages artifact contains expected `dist/` files; successful Pages deployment when repository Pages source is enabled; live smoke test after deployment.
+- **Checks deliberately reused:** existing release-gate application regression evidence remains valid because no application source, build configuration, database, or PWA configuration was changed.
 - **Repair class:** bounded deployment configuration.
 
 ## 13. Compact Revision Log
+
+### Revision 2 — 2026-09-09
+
+- **Artifact/source identity:** `main@a4f5a981421b423959ee0a638a8a07faf9d71795`.
+- **State deltas:** Added dedicated GitHub Pages workflow; first Actions run started automatically. No application code or existing CI changed.
+- **New evidence:** Clean runner checkout/setup/frozen install and typecheck succeeded; remaining build/deploy steps are still executing at this snapshot.
+- **Validation not performed:** Live Pages URL and physical iPhone installation remain unverified.
 
 ### Revision 1 — 2026-09-09
 
 - **Artifact/source identity:** `main@fe5ba57b95b82e2fe23e33a6b69ddbf57645e4c1`.
 - **State deltas:** Initialized operational state for the GitHub Pages/Greyson iPhone test deployment task.
 - **New evidence:** Confirmed canonical repo identity, current build/PWA configuration, existing read-only CI, and connector limitation around Pages settings.
-- **Validation not performed:** No live GitHub Pages deployment or physical iPhone installation has yet been observed.
+- **Validation not performed:** No live GitHub Pages deployment or physical iPhone installation had yet been observed.
