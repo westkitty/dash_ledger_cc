@@ -9,8 +9,17 @@ import { RootErrorBoundary } from './app/ErrorBoundary';
 import { installGlobalDiagnostics } from './services/diagnosticsLog';
 import { registerServiceWorker } from './pwa/registerSW';
 import { UxLabApp } from './ux-lab/UxLabApp';
+import { UxDemoSwitcher } from './ux-lab/UxDemoSwitcher';
 
 installGlobalDiagnostics();
+
+function readDemoState() {
+  const hash = window.location.hash;
+  return {
+    lab: hash.startsWith('#/ux-lab'),
+    demo: hash.includes('demo=1'),
+  };
+}
 
 /**
  * UX Lab isolation switch (branch: ui-ux-redesign-lab).
@@ -18,23 +27,32 @@ installGlobalDiagnostics();
  * Hash `#/ux-lab…` renders the standalone experimental tree INSTEAD of the
  * canonical app. Because the decision happens here — above LedgerProvider —
  * a lab session never mounts the store and never touches IndexedDB. Exiting
- * the lab (any non-lab hash) mounts the normal app exactly as shipped.
+ * the lab mounts the normal app exactly as shipped.
+ *
+ * `?demo=1` enables the compact five-position demo selector on the canonical
+ * app. Lab routes always show it so a tester can move Current ⇄ Concepts 1–4
+ * without hunting through the lab index.
  */
 function Root() {
-  const [lab, setLab] = useState(() => window.location.hash.startsWith('#/ux-lab'));
+  const [state, setState] = useState(readDemoState);
 
   useEffect(() => {
-    const onChange = () => setLab(window.location.hash.startsWith('#/ux-lab'));
+    const onChange = () => setState(readDemoState());
     window.addEventListener('hashchange', onChange);
     return () => window.removeEventListener('hashchange', onChange);
   }, []);
 
-  return lab ? (
-    <UxLabApp />
-  ) : (
-    <LedgerProvider>
-      <App />
-    </LedgerProvider>
+  return (
+    <>
+      {state.lab ? (
+        <UxLabApp />
+      ) : (
+        <LedgerProvider>
+          <App />
+        </LedgerProvider>
+      )}
+      {(state.lab || state.demo) && <UxDemoSwitcher />}
+    </>
   );
 }
 
