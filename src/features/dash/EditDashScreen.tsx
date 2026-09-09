@@ -15,7 +15,7 @@ export function EditDashScreen({ id }: { id: string }) {
   const shift = shifts.find((s) => s.id === id);
   if (!shift) {
     return (
-      <EmptyState icon="✕" title="Dash not found" action={<Button to="/" variant="primary">Back to Dash</Button>}>
+      <EmptyState icon="✕" title="Dash not found" action={<Button to="/" variant="primary">Back to the Desk</Button>}>
         This dash may have been deleted.
       </EmptyState>
     );
@@ -27,7 +27,7 @@ export function EditDashScreen({ id }: { id: string }) {
   return (
     <div className="stack">
       <Link to="/" className="back-link">
-        <span aria-hidden>‹</span> Dash
+        <span aria-hidden>‹</span> Desk
       </Link>
       <div className="screen-head">
         <div>

@@ -13,12 +13,26 @@ works offline after the first load and installs as a PWA.
 
 ## Key capabilities
 
-- **Fast shift entry** — Start Dash / End Dash with sensible prefills (today,
-  default vehicle, current time, last odometer). The active dash is written
-  immediately and survives reload / browser restart. Only one dash can be active
-  at a time.
+- **The Desk** — the home screen and primary field surface. A restrained
+  contextual heading, a READY state, one dominant **Start Dash**, a compact
+  current-week snapshot, thumb-sized quick **Expense** / **Receipt** actions, and
+  recent dashes. No onboarding wall: a brand-new ledger with no vehicle lands
+  straight here.
+- **Fast shift entry** — Start Dash / End Dash open as sheets *over* the Desk
+  (never a route change), with sensible prefills (today, default vehicle, current
+  time, this vehicle's last ending odometer). The normal one-vehicle happy path
+  is **two primary-action taps** to an active dash. If no vehicle exists yet, the
+  Start sheet chains a minimal "add a vehicle" step and resumes. The active dash
+  is written immediately, survives reload / browser restart, and shows an
+  unmistakable **ON THE ROAD** card plus a persistent shell indicator on every
+  other screen. Only one dash can be active at a time (enforced in the
+  repository transaction).
 - **Historical entry & editing** — Log a completed dash that was never started in
   the app; edit any shift and every derived value recalculates.
+- **Reversible deletion** — deleting a dash, expense or receipt shows an
+  **Undo** toast; restore re-creates the record (including the receipt's image
+  bytes) and re-attaches links only where the counterpart still exists. Deleting
+  one record never destroys an independent record it was merely linked to.
 - **Mileage** — business miles = ending − starting odometer. Reversed readings
   are rejected (never zeroed or swapped); a dash over the suspicious threshold
   (default 400 mi) is preserved and flagged. Per-vehicle odometer continuity with
@@ -38,13 +52,20 @@ works offline after the first load and installs as a PWA.
   classification, virtual Year / Category folders, best-effort image
   optimisation that *always* preserves the original on failure. Images live in a
   separate IndexedDB table so list views only load thumbnails.
-- **Weeks** — Monday–Sunday, keyed by the Monday date. Weekly summary, explicit
-  weekly close (in progress / review due / reviewed, reopenable), and a
-  record-completeness review (not a tax-compliance score).
-- **Years** — yearly summary, effective-dated standard-mileage estimate
-  (2011–2026 seeded, including the 2026-06-30 → 0.725 / 2026-07-01 → 0.760
-  split), unpriced-mile reporting, annual odometer & business-use %,
-  actual-expense planning comparison, and statement / 1099 reconciliation.
+- **Weeks** — Monday–Sunday, keyed by the Monday date. Read top-to-bottom as
+  *what happened* (the primary numbers, with the fuller expense/time breakdown in
+  a collapsed disclosure) → *what needs attention* (the typed, deep-linked
+  completeness list) → *what completes review* (the close action). Explicit
+  weekly close (in progress / review due / reviewed, reopenable) never freezes
+  the records; editing a record inside a reviewed week is detected and surfaced
+  as "changed since review" with a one-tap re-review. The completeness review is
+  a record-completeness check, not a tax-compliance score.
+- **Years** — yearly summary, a compact **month-by-month** drill-down
+  (dashes / gross / business miles / tracked expenses), effective-dated
+  standard-mileage estimate (2011–2026 seeded, including the
+  2026-06-30 → 0.725 / 2026-07-01 → 0.760 split), unpriced-mile reporting,
+  annual odometer & business-use %, actual-expense planning comparison, and
+  statement / 1099 reconciliation.
 - **Exports** — full JSON backup (receipt images embedded as data URLs),
   ledger-only JSON (metadata, no image bytes), shifts CSV, expenses CSV, mileage
   rates CSV, and a standalone printable **Tax Binder** HTML file per year.
@@ -95,15 +116,16 @@ access never leaks into presentation components.
 ```
 src/
   app/            router, App, ErrorBoundary, BottomNav, ToastHost, UpdateBanner
-  components/     ui.tsx, forms.tsx, ReceiptImage.tsx, BackupHealthCard.tsx
+  components/     ui.tsx, forms.tsx, Sheet.tsx, ReceiptImage.tsx, BackupHealthCard.tsx
   domain/        types, dates, money, duration, mileage, mileageRates,
                  expenses, merchantMemory, aggregation, completeness, backupHealth
   db/             db.ts (Dexie schema v1), repositories.ts
   services/      csv, backup, backupFormats, restore, safetyGate, taxBinder,
                  receiptImages, storageHealth, share, diagnosticsLog, selfTest
     import/      detect, normalize, legacyMoney, legacyDb, apply (legacy boundary)
-  state/          store.tsx
-  features/       dash/ week/ expenses/ receipts/ vault/ settings/ diagnostics/ onboarding/
+  state/          store.tsx  (snapshot + mutate + toasts/undo + cross-tab reload)
+  features/       desk/  (Desk + Start/End Dash sheets + on-road bar)
+                 dash/ week/ expenses/ receipts/ vault/ settings/ diagnostics/ onboarding/
   styles/        tokens.css, global.css
   tests/          Vitest suites + factories
 scripts/         gen-icons.mjs (dependency-free PNG icon generator)
@@ -186,12 +208,18 @@ serves static content.
 - Workbox `generateSW` precaches **only** the app shell and versioned static
   assets (JS/CSS/HTML/icons/manifest). User data is never touched by the service
   worker — IndexedDB remains the single live database.
-- Update flow is `registerType: 'prompt'`: a new version shows an unobtrusive
-  "Update available" banner and only reloads on a deliberate tap, so in-progress
-  form input is not lost.
+- Update flow is `registerType: 'prompt'` (`skipWaiting: false`): a new version
+  shows an unobtrusive "Update available" banner and only reloads on a deliberate
+  tap, so in-progress form input is not lost.
 - After the first load, these work offline: open the app, view records, start /
   end / edit a dash, weekly & yearly views, add expenses, capture receipts from
   the local camera/file picker, view stored receipts, and create local exports.
+- **Multiple tabs:** a change in one tab notifies the others over a
+  `BroadcastChannel` (feature-detected, best effort) so a stale tab reloads its
+  snapshot. The single-active-dash and other invariants are enforced in the
+  repository transactions regardless of tab state.
+- **Keyboard:** a "Skip to main content" link is the first tab stop; sheets trap
+  focus, close on `Escape`, and restore focus to the opener.
 
 Some embedded browser previews disallow service-worker registration; use a real
 browser over `http(s)` to exercise install / offline.
@@ -236,17 +264,22 @@ or custom periods in Tax / Vault → Rates. **Rates are never fetched online.**
 
 ### Backup, restore & exports
 
-- **Full backup** (`format: "dash-ledger-backup"`) — every collection plus
-  settings/meta; receipt images embedded as base64 data URLs. Self-sufficient.
-- **Ledger-only** (`format: "dash-ledger-ledger-only"`, `imagesOmitted: true`) —
-  all metadata, no image bytes. An export, not an image-restorable backup.
+- **Full backup** (`format: "dash-ledger-backup-v2"`, with `formatVersion` and
+  `producer`) — every collection plus settings/meta; receipt images embedded as
+  base64 data URLs. Self-sufficient. The ambiguous v1 marker
+  `dash-ledger-backup` is read via the import adapters but never written.
+- **Ledger-only** (`format: "dash-ledger-ledger-only-v2"`, `imagesOmitted: true`)
+  — all metadata, no image bytes. An export, not an image-restorable backup.
 - **Restore** validates the whole payload first (root shape, known format,
   schema not newer than supported, arrays where expected, valid/unique IDs,
   valid local dates, sane cross-links, structurally valid image payloads, at most
   one active dash). It then replaces every authoritative table inside **one Dexie
   transaction** — a failure rolls back and leaves the previous database intact.
 - **CSV** is UTF-8, CRLF row endings, RFC-4180 quoting (fields with `"` `,` CR or
-  LF are quoted, embedded quotes doubled).
+  LF are quoted, embedded quotes doubled). Cells a spreadsheet would evaluate as
+  a formula (leading `= + @ TAB CR`, or `-` when the value is not a plain number)
+  are prefixed with an apostrophe so they open as literal text; real numbers,
+  including negatives, stay numeric.
 - **Tax Binder** is a standalone HTML file with embedded CSS and embedded receipt
   images; readable and printable with no JavaScript and no dependency on the app.
 

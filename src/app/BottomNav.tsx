@@ -2,7 +2,7 @@ import { useRouter, Link } from './router';
 import { useLedgerContext } from '../state/store';
 
 const ITEMS = [
-  { to: '/', label: 'Dash', match: (p: string) => p === '/' || p === '/start' || p === '/end' || p === '/log' || p.startsWith('/dash/'), icon: DashIcon },
+  { to: '/', label: 'Desk', match: (p: string) => p === '/' || p === '/start' || p === '/end' || p === '/log' || p.startsWith('/dash/'), icon: DashIcon },
   { to: '/week', label: 'Week', match: (p: string) => p === '/week' || p.startsWith('/expense/'), icon: WeekIcon },
   { to: '/receipts', label: 'Receipts', match: (p: string) => p.startsWith('/receipts'), icon: ReceiptIcon },
   { to: '/vault', label: 'Tax · Vault', match: (p: string) => p === '/vault' || p === '/settings' || p === '/diagnostics', icon: VaultIcon },

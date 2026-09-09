@@ -138,7 +138,7 @@ export function App() {
           <Routes
             routes={ROUTES}
             fallback={(p) => (
-              <EmptyState icon="✕" title="Screen not found" action={<a className="btn" href="#/">Go to Dash</a>}>
+              <EmptyState icon="✕" title="Screen not found" action={<a className="btn" href="#/">Go to the Desk</a>}>
                 No route matches <span className="inline-code">{p}</span>.
               </EmptyState>
             )}

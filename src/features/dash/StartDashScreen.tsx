@@ -50,7 +50,7 @@ export function StartDashScreen() {
           <Button to="/end" variant="primary">
             End current dash
           </Button>
-          <Button to="/">Back to Dash</Button>
+          <Button to="/">Back to the Desk</Button>
         </div>
       </Card>
     );
