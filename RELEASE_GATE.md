@@ -254,7 +254,13 @@ optional APIs are all feature-detected.
 
 ## Exact candidate SHA
 
-`c65a032a4fdca03979705c23497586d59d4975eb`
+- **Last code-changing commit:** `c65a032a4fdca03979705c23497586d59d4975eb`
+  (`fix: close final release gate defects`) — this is what all validation above
+  was run against.
+- **Final branch HEAD:** `3055613` (`docs: record dash ledger release gate`) —
+  adds this file only, no source change. A follow-up docs commit refines this
+  line. Either way, the integration candidate is the full `finish-dash-ledger`
+  history through its tip.
 
 `origin/main` is and remains `9353b54f06d4ae0791104e923c4625a05aa455a9`. **This
 gate did not merge `main`, did not move any branch other than
