@@ -361,6 +361,21 @@ not prove it is stored safely).
 - The Apple Shortcuts "open Start-Dash on DoorDash launch" idea is an optional
   user-configured automation. Dash Ledger does not integrate with or talk to the
   DoorDash app.
+- `dist/index.html` must be served over HTTP(S) — it does not run from `file://`
+  (ES-module + service-worker constraints). See `DEPLOYMENT.md`.
+
+---
+
+## Project records
+
+| Document | What it covers |
+|---|---|
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Building and hosting the static artifact; the browser-origin data model; code-rollback vs user-data-restore. |
+| [`BUILD_REPRODUCIBILITY.md`](BUILD_REPRODUCIBILITY.md) | Proof a clean clone reconstructs, tests, and builds the project; toolchain contract; CI. |
+| [`PROJECT_COMPLETION_REPORT.md`](PROJECT_COMPLETION_REPORT.md) | The full build-out (Phases 3–9): what was finished and how it was validated. |
+| [`COMPARATIVE_RECON.md`](COMPARATIVE_RECON.md) | Evidence-based comparison against Gridwise / Everlance / Hurdlr / Stride / Driversnote / Solo / GigClaim and the gain that was adopted. |
+| [`BUG_SWEEP_REPORT.md`](BUG_SWEEP_REPORT.md) | The three-pass exhaustive bug sweep and its fixes. |
+| [`RELEASE_GATE.md`](RELEASE_GATE.md) | The independent pre-integration release gate. |
 
 ---
 
