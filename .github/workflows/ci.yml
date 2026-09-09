@@ -1,0 +1,99 @@
+name: CI
+
+# Validates Dash Ledger from a clean GitHub-hosted runner on every change.
+# It does NOT deploy, publish, tag, or release anything — it only proves the
+# canonical source still typechecks, lints, tests (incl. under extreme
+# timezones), and builds, and it uploads the static `dist/` for inspection.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only. This workflow never needs to write to the repo, packages, or pages.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set up Bun (declared package manager)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Unit + integration tests
+        run: bun run test
+
+      - name: Production build
+        run: bun run build
+
+      - name: Sanity-check the build output
+        run: |
+          test -f dist/index.html
+          test -f dist/manifest.webmanifest
+          test -f dist/sw.js
+          test -d dist/assets
+          test -d dist/icons
+
+      - name: Upload static build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dash-ledger-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  timezone:
+    name: tests @ ${{ matrix.tz }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tz: [Pacific/Kiritimati, Pacific/Midway]
+    env:
+      TZ: ${{ matrix.tz }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node (from .nvmrc)
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Set up Bun (declared package manager)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.12
+
+      - name: Install dependencies (frozen lockfile)
+        run: bun install --frozen-lockfile
+
+      - name: Vitest under ${{ matrix.tz }}
+        run: bun run test

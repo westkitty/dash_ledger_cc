@@ -157,6 +157,25 @@ existence, permissions, artifact path). Whether GitHub Actions has produced a
 run is reported separately in the session notes — do not assume a run occurred
 just because the workflow file exists.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every **push to `main`** and every **pull
+request targeting `main`** (plus manual `workflow_dispatch`), from a clean
+`ubuntu-latest` runner:
+
+| Job | Steps |
+|---|---|
+| `validate` | checkout → `actions/setup-node` (from `.nvmrc`) → `oven-sh/setup-bun@v2` (`1.3.12`) → `bun install --frozen-lockfile` → `bun run typecheck` → `bun run lint` → `bun run test` → `bun run build` → sanity-check `dist/` → **upload `dist/` as artifact** `dash-ledger-dist-<sha>` (14-day retention) |
+| `timezone` (matrix) | same setup, then `bun run test` under `TZ=Pacific/Kiritimati` and `TZ=Pacific/Midway` |
+
+- **Permissions:** `contents: read` only. No write scope, no secrets, no
+  third-party actions beyond `oven-sh/setup-bun` (Bun's own org — required to
+  install the declared package manager).
+- **CI never deploys, publishes, tags, or releases.** The uploaded `dist/` is an
+  inspectable build artifact, not a deployment. `dist/` is git-ignored and never
+  committed.
+- **Local equivalent:** exactly the `bun run …` commands above.
+
 ## Reproduction procedure (another machine)
 
 ```bash
