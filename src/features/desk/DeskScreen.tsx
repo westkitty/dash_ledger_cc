@@ -25,12 +25,12 @@ import { StartDashSheet } from './StartDashSheet';
 import { EndDashSheet } from './EndDashSheet';
 import { deleteShift, restoreDeletedShift } from '../../db/repositories';
 import type { Shift } from '../../domain/types';
-import { formatLocalDate, mondayOf, nowLocalTime, todayLocalDate } from '../../domain/dates';
+import { formatLocalDate, mondayOf, todayLocalDate } from '../../domain/dates';
 import { summariseWeek } from '../../domain/aggregation';
 import { pendingReview } from '../../domain/completeness';
 import { checkContinuity, computeMileage } from '../../domain/mileage';
 import { grossIncomeCents } from '../../domain/money';
-import { formatHours, shiftDuration } from '../../domain/duration';
+import { elapsedSince, formatHours } from '../../domain/duration';
 
 function deskLabel(hour: number): string {
   if (hour < 5) return 'Night';
@@ -228,7 +228,7 @@ function ActiveDashCard({
   }, []);
 
   const cont = checkContinuity(shifts, shift.vehicleId, shift.date, shift.startOdometer, shift.id);
-  const elapsed = shift.startTime ? shiftDuration(shift.startTime, nowLocalTime()) : null;
+  const elapsed = elapsedSince(shift.date, shift.startTime);
 
   return (
     <section className="active-card" aria-label="Active dash — on the road">
@@ -247,7 +247,7 @@ function ActiveDashCard({
         <dd>{shift.startTime ?? 'time not set'}</dd>
         <dt>Start odometer</dt>
         <dd>{shift.startOdometer?.toLocaleString('en-US') ?? 'not set'}</dd>
-        {elapsed?.known && (
+        {elapsed.known && (
           <>
             <dt>Elapsed</dt>
             <dd>{formatHours(elapsed.hours)}</dd>

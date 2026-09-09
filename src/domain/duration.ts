@@ -62,3 +62,26 @@ export function formatHours(hours: number | null | undefined): string {
   if (m === 60) return `${h + 1}h 0m`;
   return `${h}h ${m}m`;
 }
+
+/**
+ * Real elapsed hours since a shift's local start (`date` + `startTime`) up to
+ * `now`. Unlike `shiftDuration`, this does NOT assume the span is under 24h — an
+ * active dash left open across a day boundary reports its true elapsed time, not
+ * a wrapped small number. Returns `{ known: false }` when the start is missing
+ * or is in the future (clock skew).
+ */
+export function elapsedSince(
+  date: string,
+  startTime: string | null | undefined,
+  now: Date = new Date(),
+): { known: boolean; hours: number } {
+  const mins = startTime ? timeToMinutes(startTime) : null;
+  if (mins === null || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return { known: false, hours: 0 };
+  // `${date}T00:00:00` (no offset) parses as LOCAL time per ES2015+.
+  const start = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(start.getTime())) return { known: false, hours: 0 };
+  start.setHours(0, mins, 0, 0);
+  const ms = now.getTime() - start.getTime();
+  if (ms < 0) return { known: false, hours: 0 };
+  return { known: true, hours: ms / 3_600_000 };
+}
