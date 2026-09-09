@@ -1,358 +1,119 @@
-/**
- * UX Lab · Concept 2 — "Resolve" review queue
- *
- * Redesign hypothesis: unresolved work is scattered (Desk list capped at 5,
- * per-week lists, the receipt Inbox) and every item currently requires opening
- * a full editor on a different screen. This demo aggregates ALL unresolved
- * items into one queue with inline, one-tap resolutions in place — the
- * "one-swipe classification" mechanic proven by Everlance / MileIQ, adapted to
- * Dash Ledger's existing typed issues (no new record states, resolution simply
- * performs the same edit the full editor would).
- *
- * Local mock state only — no store, no db.
- */
-
-import { useState } from 'react';
+import { useMemo } from 'react';
+import { useRouter } from '../../app/router';
+import { useLedger, useLedgerContext } from '../../state/store';
+import { updateExpense } from '../../db/repositories';
+import { computeMileage } from '../../domain/mileage';
+import { formatCents } from '../../domain/money';
+import type { TaxClass } from '../../domain/types';
 import { LabFrame } from '../LabFrame';
 
-type ItemKind = 'receipt' | 'expense-class' | 'odometer' | 'unpriced' | 'missing-time';
-
-interface QueueItem {
-  id: string;
-  kind: ItemKind;
-  title: string;
-  why: string;
-  ageLabel: string;
-  warn: boolean;
-}
-
-const INITIAL_QUEUE: QueueItem[] = [
-  {
-    id: 'q1',
-    kind: 'receipt',
-    title: 'Receipt photo — no merchant yet',
-    why: 'Captured Wed Sep 9 · photo saved · needs merchant, amount, category to leave the Inbox.',
-    ageLabel: 'Today',
-    warn: true,
-  },
-  {
-    id: 'q2',
-    kind: 'expense-class',
-    title: 'Expense "Hardware store — misc" · $23.40',
-    why: 'Still classified Review / Unsure — its tax treatment was never decided.',
-    ageLabel: 'Aug 28',
-    warn: true,
-  },
-  {
-    id: 'q3',
-    kind: 'odometer',
-    title: 'Sat Aug 29 dash · 48 mi recorded',
-    why: 'Miles are 2.3× your recent dashes. Kept exactly as entered — confirm or correct it.',
-    ageLabel: 'Aug 29',
-    warn: true,
-  },
-  {
-    id: 'q4',
-    kind: 'unpriced',
-    title: '12 business miles have no mileage rate',
-    why: 'A 2026 rate exists (Jul–Dec: $0.760/mi). Applying it prices those miles for planning.',
-    ageLabel: 'This week',
-    warn: false,
-  },
-  {
-    id: 'q5',
-    kind: 'missing-time',
-    title: 'Sep 2 dash has no start / end time',
-    why: 'Hours and $/hour stay blank until a time exists. Amounts are unaffected.',
-    ageLabel: 'Last week',
-    warn: false,
-  },
-];
+type QueueItem =
+  | { id: string; kind: 'receipt'; title: string; why: string; target: string }
+  | { id: string; kind: 'expense'; title: string; why: string; target: string; expenseId: string }
+  | { id: string; kind: 'odometer' | 'time'; title: string; why: string; target: string };
 
 export function Concept2ReviewQueue() {
-  const [queue] = useState(INITIAL_QUEUE);
-  const [resolved, setResolved] = useState<string[]>([]);
-  const [editingOdo, setEditingOdo] = useState(false);
-  const [toastNote, setToastNote] = useState<string | null>(null);
+  const snap = useLedger();
+  const { mutate } = useLedgerContext();
+  const { navigate } = useRouter();
 
-  const remaining = queue.filter((q) => !resolved.includes(q.id));
-  const doneCount = resolved.length;
-  const pct = Math.round((doneCount / queue.length) * 100);
+  const queue = useMemo<QueueItem[]>(() => {
+    const items: QueueItem[] = [];
+    for (const r of snap.receipts) {
+      if (r.status !== 'Inbox') continue;
+      items.push({
+        id: `receipt:${r.id}`,
+        kind: 'receipt',
+        title: r.merchant.trim() ? `Receipt · ${r.merchant}` : `Receipt · ${r.originalFilename || 'unclassified photo'}`,
+        why: `${r.date ?? r.capturedAt.slice(0, 10)} · needs enough details to leave the Inbox.`,
+        target: `/receipts/${r.id}?demo=1`,
+      });
+    }
+    for (const e of snap.expenses) {
+      if (e.taxClass !== 'REVIEW') continue;
+      items.push({
+        id: `expense:${e.id}`,
+        kind: 'expense',
+        title: `${e.merchant || e.category} · ${formatCents(e.amountCents)}`,
+        why: `${e.date} · still classified Review / Unsure. Choose the treatment here or open the full editor.`,
+        target: `/expense/${e.id}?demo=1`,
+        expenseId: e.id,
+      });
+    }
+    for (const s of snap.shifts.filter((x) => x.status === 'completed')) {
+      const mileage = computeMileage(s.startOdometer, s.endOdometer, snap.settings.implausibleMiles);
+      if (mileage.status === 'missing') {
+        items.push({
+          id: `odo:${s.id}`,
+          kind: 'odometer',
+          title: `${s.date} dash · mileage incomplete`,
+          why: 'A starting or ending odometer reading is missing.',
+          target: `/dash/${s.id}?demo=1`,
+        });
+      }
+      if (!s.startTime || !s.endTime) {
+        items.push({
+          id: `time:${s.id}`,
+          kind: 'time',
+          title: `${s.date} dash · time incomplete`,
+          why: 'Start or end time is missing, so time-based summaries stay incomplete.',
+          target: `/dash/${s.id}?demo=1`,
+        });
+      }
+    }
+    return items.sort((a, b) => a.title.localeCompare(b.title));
+  }, [snap.receipts, snap.expenses, snap.shifts, snap.settings.implausibleMiles]);
 
-  function resolve(id: string, note: string) {
-    setResolved((r) => [...r, id]);
-    setToastNote(note);
-    window.setTimeout(() => setToastNote(null), 3000);
+  async function classifyExpense(expenseId: string, taxClass: TaxClass) {
+    await mutate(() => updateExpense(expenseId, { taxClass }), { success: 'Expense classification saved' });
   }
-
-  const current = remaining[0];
 
   return (
     <LabFrame
       concept={2}
       title="Resolve — one queue, decisions in place"
-      sub="Every unresolved record across all weeks, oldest debt first. Each card resolves inline; the full editor stays one tap away."
+      sub="Unresolved receipts, Review-class expenses, and incomplete dash facts are gathered from the live ledger."
     >
       <section className="uxlab-card uxlab-queue-head">
-        <div className="uxlab-label">Review debt</div>
-        <div
-          className="uxlab-progress"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={queue.length}
-          aria-valuenow={doneCount}
-          aria-label="Resolved items"
-        >
-          <div className="uxlab-progress__fill" style={{ width: `${pct}%` }} />
+        <div className="uxlab-label">Live review debt</div>
+        <div className="uxlab-weekline">
+          <span className="uxlab-weekline__big uxlab-tabular">{queue.length}</span>
+          <span className="uxlab-weekline__rest">unresolved item{queue.length === 1 ? '' : 's'} across the shared ledger</span>
+          <span className="uxlab-badge uxlab-badge--fact">Shared data</span>
         </div>
-        <span className="uxlab-progress__progress uxlab-progress__text uxlab-tabular">
-          {doneCount} of {queue.length} resolved · {remaining.length} to go
-        </span>
       </section>
 
-      {remaining.length === 0 ? (
+      {queue.length === 0 ? (
         <section className="uxlab-card">
           <div className="uxlab-label">All clear</div>
-          <p style={{ margin: '4px 0 8px', fontWeight: 650 }}>
-            Everything is resolved — ledger is fully decided as of right now.
-          </p>
-          <p className="small faint" style={{ margin: 0 }}>
-            Nothing was guessed: each resolution performed the exact edit the full editor performs.
-            Next honest step: mark the week reviewed in Week.
-          </p>
+          <p style={{ margin: 0 }}>Nothing currently needs a classification or missing-data repair.</p>
         </section>
-      ) : (
-        <p className="small faint" style={{ margin: 0 }}>
-          First unresolved item is pinned at top — work top to bottom, or jump via the index below.
-        </p>
-      )}
-
-      {queue.map((item) => {
-        const isDone = resolved.includes(item.id);
-        const isCurrent = current?.id === item.id;
-        return (
-          <section
-            key={item.id}
-            className={`uxlab-queueitem ${isDone ? 'uxlab-queueitem--done' : ''}`}
-            aria-current={isCurrent ? 'true' : undefined}
-          >
-            <div className="uxlab-queueitem__top">
-              <span className="uxlab-emoji-free" aria-hidden>
-                {kindGlyph(item.kind)}
-              </span>
-              <span className={`uxlab-badge ${item.warn ? 'uxlab-badge--warn' : 'uxlab-badge--review'}`}>
-                {kindLabel(item.kind)}
-              </span>
-              <span className="uxlab-row__value-sub">{item.ageLabel}</span>
-              {isDone && <span className="uxlab-badge uxlab-badge--fact">Resolved</span>}
+      ) : queue.map((item) => (
+        <section key={item.id} className="uxlab-queueitem">
+          <div className="uxlab-queueitem__top">
+            <span className="uxlab-emoji-free" aria-hidden>{item.kind === 'receipt' ? 'R' : item.kind === 'expense' ? '$' : item.kind === 'odometer' ? 'MI' : 'H'}</span>
+            <span className="uxlab-badge uxlab-badge--warn">
+              {item.kind === 'receipt' ? 'Receipt inbox' : item.kind === 'expense' ? 'Review class' : item.kind === 'odometer' ? 'Mileage' : 'Missing time'}
+            </span>
+          </div>
+          <p className="uxlab-queueitem__what">{item.title}</p>
+          <p className="uxlab-queueitem__why">{item.why}</p>
+          {item.kind === 'expense' ? (
+            <div className="uxlab-queueitem__actions">
+              <button type="button" className="uxlab-seg__btn" onClick={() => void classifyExpense(item.expenseId, 'VEHICLE_ACTUAL')}>Vehicle actual</button>
+              <button type="button" className="uxlab-seg__btn" onClick={() => void classifyExpense(item.expenseId, 'MILEAGE_ADDON')}>Mileage add-on</button>
+              <button type="button" className="uxlab-seg__btn uxlab-seg__btn--primary" onClick={() => void classifyExpense(item.expenseId, 'NON_VEHICLE_BUSINESS')}>Other business</button>
+              <button type="button" className="uxlab-btn uxlab-btn--ghost" onClick={() => navigate(item.target)}>Full editor →</button>
             </div>
-            {!isDone && (
-              <>
-                <p className="uxlab-queueitem__what">{item.title}</p>
-                <p className="uxlab-queueitem__why">{item.why}</p>
-                <ItemActions
-                  item={item}
-                  editingOdo={editingOdo}
-                  setEditingOdo={setEditingOdo}
-                  onResolve={resolve}
-                />
-              </>
-            )}
-            {isDone && <p className="uxlab-queueitem__why" style={{ marginBottom: 0 }}>{item.title}</p>}
-          </section>
-        );
-      })}
-
-      {doneCount > 0 && (
-        <section className="uxlab-card">
-          <div className="uxlab-label">Resolved this session ({doneCount})</div>
-          {queue
-            .filter((q) => resolved.includes(q.id))
-            .map((q) => (
-              <div key={q.id} className="uxlab-done-row">
-                <span aria-hidden>✓</span>
-                <span>{q.title}</span>
-              </div>
-            ))}
+          ) : (
+            <div className="uxlab-queueitem__actions">
+              <button type="button" className="uxlab-btn uxlab-btn--primary" onClick={() => navigate(item.target)}>
+                {item.kind === 'receipt' ? 'Classify receipt' : 'Fix record'} →
+              </button>
+            </div>
+          )}
         </section>
-      )}
-
-      {toastNote && (
-        <div className="uxlab-toast" role="status">
-          {toastNote}
-        </div>
-      )}
+      ))}
     </LabFrame>
   );
-}
-
-function kindGlyph(kind: ItemKind): string {
-  switch (kind) {
-    case 'receipt':
-      return 'R';
-    case 'expense-class':
-      return '$';
-    case 'odometer':
-      return 'MI';
-    case 'unpriced':
-      return '¢';
-    case 'missing-time':
-      return 'H';
-  }
-}
-
-function kindLabel(kind: ItemKind): string {
-  switch (kind) {
-    case 'receipt':
-      return 'Receipt inbox';
-    case 'expense-class':
-      return 'Review class';
-    case 'odometer':
-      return 'Mileage flag';
-    case 'unpriced':
-      return 'Unpriced miles';
-    case 'missing-time':
-      return 'Missing time';
-  }
-}
-
-function ItemActions({
-  item,
-  editingOdo,
-  setEditingOdo,
-  onResolve,
-}: {
-  item: QueueItem;
-  editingOdo: boolean;
-  setEditingOdo: (v: boolean) => void;
-  onResolve: (id: string, note: string) => void;
-}) {
-  switch (item.kind) {
-    case 'receipt':
-      return (
-        <div className="uxlab-queueitem__actions">
-          <span className="uxlab-queueitem__defer">Classify from the photo:</span>
-          {['Fuel', 'Parking', 'Phone / Data', 'Supplies'].map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={`uxlab-seg__btn ${c === 'Fuel' ? 'uxlab-seg__btn--primary' : ''}`}
-              onClick={() => onResolve(item.id, `Receipt classified as ${c} · $38.25 — demo only`)}
-            >
-              {c}
-            </button>
-          ))}
-          <button type="button" className="uxlab-btn uxlab-btn--ghost">Open full editor →</button>
-        </div>
-      );
-    case 'expense-class':
-      return (
-        <div className="uxlab-queueitem__actions">
-          <span className="uxlab-queueitem__defer">Tax treatment:</span>
-          <button
-            type="button"
-            className="uxlab-seg__btn uxlab-seg__btn--primary"
-            onClick={() => onResolve(item.id, 'Set to Vehicle actual-expense — demo only')}
-          >
-            Vehicle
-          </button>
-          <button
-            type="button"
-            className="uxlab-seg__btn"
-            onClick={() => onResolve(item.id, 'Set to Mileage add-on — demo only')}
-          >
-            Mileage add-on
-          </button>
-          <button
-            type="button"
-            className="uxlab-seg__btn"
-            onClick={() => onResolve(item.id, 'Set to Other business — demo only')}
-          >
-            Business
-          </button>
-          <button
-            type="button"
-            className="uxlab-seg__btn"
-            onClick={() => onResolve(item.id, 'Marked not business — demo only')}
-          >
-            Not business
-          </button>
-        </div>
-      );
-    case 'odometer':
-      return (
-        <div className="uxlab-queueitem__actions">
-          {!editingOdo ? (
-            <>
-              <button
-                type="button"
-                className="uxlab-seg__btn uxlab-seg__btn--primary"
-                onClick={() => onResolve(item.id, '48 mi confirmed as driven — flag cleared, value unchanged — demo only')}
-              >
-                Keep 48 mi — it's right
-              </button>
-              <button type="button" className="uxlab-seg__btn" onClick={() => setEditingOdo(true)}>
-                Fix the reading
-              </button>
-            </>
-          ) : (
-            <>
-              <input
-                className="uxlab-input"
-                style={{ maxWidth: 160 }}
-                type="text"
-                inputMode="decimal"
-                defaultValue="62212"
-                aria-label="Corrected ending odometer"
-              />
-              <button
-                type="button"
-                className="uxlab-seg__btn uxlab-seg__btn--primary"
-                onClick={() => {
-                  setEditingOdo(false);
-                  onResolve(item.id, 'Ending odometer corrected — miles recomputed, original preserved in edit history — demo only');
-                }}
-              >
-                Save correction
-              </button>
-            </>
-          )}
-          <span className="uxlab-queueitem__defer">Never auto-changed. Confirm or correct — your call.</span>
-        </div>
-      );
-    case 'unpriced':
-      return (
-        <div className="uxlab-queueitem__actions">
-          <button
-            type="button"
-            className="uxlab-seg__btn uxlab-seg__btn--primary"
-            onClick={() => onResolve(item.id, '12 mi priced at the 2026 H2 rate ($0.760) — estimate only — demo only')}
-          >
-            Apply 2026 rate · $0.760/mi
-          </button>
-          <button
-            type="button"
-            className="uxlab-seg__btn"
-            onClick={() => onResolve(item.id, 'Left deliberately unpriced — stays reported as unpriced miles — demo only')}
-          >
-            Leave unpriced
-          </button>
-        </div>
-      );
-    case 'missing-time':
-      return (
-        <div className="uxlab-queueitem__actions">
-          <button
-            type="button"
-            className="uxlab-seg__btn uxlab-seg__btn--primary"
-            onClick={() => onResolve(item.id, 'Times set 11:15–14:35 — demo only')}
-          >
-            Use 11:15 – 14:35
-          </button>
-          <button type="button" className="uxlab-seg__btn" onClick={() => onResolve(item.id, 'Left without time — $/hour stays honestly blank — demo only')}>
-            Leave blank
-          </button>
-        </div>
-      );
-  }
 }
