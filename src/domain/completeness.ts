@@ -144,6 +144,68 @@ export function weekCompleteness(
 }
 
 /**
+ * Codes that represent a record actually needing a human decision (vs. a purely
+ * informational note like a continuity gap or a missing linked receipt).
+ */
+const REVIEW_CODES = new Set([
+  'active-dash',
+  'missing-odometer',
+  'reversed-odometer',
+  'suspicious-mileage',
+  'expense-review',
+  'receipt-inbox',
+  'receipt-image-warning',
+  'no-rate',
+]);
+
+/**
+ * Everything across the whole ledger — not just one week — that still needs a
+ * human decision. Built by running the per-week completeness check over every
+ * week that has records and keeping only the actionable codes, de-duplicated.
+ * Pure; the Desk renders it as a single "Needs review" surface.
+ */
+export function pendingReview(
+  allShifts: Shift[],
+  allExpenses: Expense[],
+  allReceipts: Receipt[],
+  rates: MileageRate[],
+  implausibleMiles = 400,
+): CompletenessIssue[] {
+  const weekKeys = new Set<string>();
+  for (const s of allShifts) weekKeys.add(mondayOf(s.date));
+  for (const e of allExpenses) weekKeys.add(mondayOf(e.date));
+  for (const r of allReceipts) if (r.date !== null) weekKeys.add(mondayOf(r.date));
+
+  const out: CompletenessIssue[] = [];
+  const seen = new Set<string>();
+  for (const wk of [...weekKeys].sort()) {
+    for (const iss of weekCompleteness(wk, allShifts, allExpenses, allReceipts, rates, implausibleMiles)) {
+      if (!REVIEW_CODES.has(iss.code)) continue;
+      const key = `${iss.code}|${iss.href ?? ''}|${iss.message}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(iss);
+    }
+  }
+
+  // A captured receipt with no date is never in a week bucket, but an unclassified
+  // one still needs attention.
+  for (const r of allReceipts) {
+    if (r.date === null && r.status === 'Inbox') {
+      out.push({
+        code: 'receipt-inbox',
+        severity: 'warn',
+        message: 'A captured receipt has no date and is still in the Inbox.',
+        href: `/receipts/${r.id}`,
+      });
+    }
+  }
+
+  // Warnings first, then info; stable within each group.
+  return out.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'warn' ? -1 : 1));
+}
+
+/**
  * Whether a week's records have changed since it was marked reviewed.
  *
  * A closed week is not frozen — the user can still edit records in it. When they

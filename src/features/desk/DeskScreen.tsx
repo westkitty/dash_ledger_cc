@@ -27,6 +27,7 @@ import { deleteShift, restoreDeletedShift } from '../../db/repositories';
 import type { Shift } from '../../domain/types';
 import { formatLocalDate, mondayOf, nowLocalTime, todayLocalDate } from '../../domain/dates';
 import { summariseWeek } from '../../domain/aggregation';
+import { pendingReview } from '../../domain/completeness';
 import { checkContinuity, computeMileage } from '../../domain/mileage';
 import { grossIncomeCents } from '../../domain/money';
 import { formatHours, shiftDuration } from '../../domain/duration';
@@ -54,6 +55,11 @@ export function DeskScreen() {
     () =>
       summariseWeek(weekKey, shifts, expenses, receipts, mileageRates, settings.implausibleMiles, today),
     [weekKey, shifts, expenses, receipts, mileageRates, settings.implausibleMiles, today],
+  );
+
+  const review = useMemo(
+    () => pendingReview(shifts, expenses, receipts, mileageRates, settings.implausibleMiles),
+    [shifts, expenses, receipts, mileageRates, settings.implausibleMiles],
   );
 
   const recent = useMemo(
@@ -167,6 +173,29 @@ export function DeskScreen() {
         <p className="small faint" style={{ textAlign: 'center' }}>
           <Link to="/log">Log a completed dash</Link>
         </p>
+      )}
+
+      {review.length > 0 && (
+        <Card label={`Needs review (${review.length})`}>
+          <p className="small faint">
+            Records with something to decide, across every week. Record-completeness only — not a
+            tax-compliance score.
+          </p>
+          <ul className="issue-list">
+            {review.slice(0, 5).map((iss, i) => (
+              <li key={i} className={`issue ${iss.severity === 'warn' ? 'issue--warn' : ''}`}>
+                <span className="issue__dot" aria-hidden />
+                <span>{iss.href ? <Link to={iss.href}>{iss.message}</Link> : iss.message}</span>
+              </li>
+            ))}
+          </ul>
+          {review.length > 5 && (
+            <p className="small faint" style={{ marginTop: 8 }}>
+              +{review.length - 5} more — open each week from <Link to="/week">Week</Link> to work
+              through them.
+            </p>
+          )}
+        </Card>
       )}
 
       <BackupHealthCard />
