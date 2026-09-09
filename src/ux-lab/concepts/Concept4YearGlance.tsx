@@ -1,112 +1,81 @@
-/**
- * UX Lab · Concept 4 — "Year at a glance"
- *
- * Redesign hypothesis: the production Year report is a flat grid of 8+
- * equal-weight stat tiles behind a tab named "Tax · Vault" → "Year"; the two
- * numbers a driver actually files with (gross, standard-mileage deduction)
- * carry the same visual weight as shift counts, and no trend is visible
- * without reading a 12-row table. This demo leads with those two numbers,
- * renders the year as a tap-explored 12-month bar chart (pure SVG-free CSS
- * bars — no new dependency), keeps ESTIMATE labeling on every derived number,
- * and progressively discloses month detail and reconciliation.
- *
- * Local mock state only — no store, no db.
- */
-
 import { useMemo, useState } from 'react';
+import { useRouter } from '../../app/router';
+import { useLedger } from '../../state/store';
+import { estimateMileage, summariseYear, summariseYearByMonth } from '../../domain/aggregation';
+import { formatCents } from '../../domain/money';
+import { yearOf } from '../../domain/dates';
 import { LabFrame } from '../LabFrame';
-import { LAB_YEAR_2026, labMoney } from '../fixtures';
 
 type Metric = 'gross' | 'deduction' | 'miles';
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export function Concept4YearGlance() {
+  const snap = useLedger();
+  const { navigate } = useRouter();
+  const year = yearOf(snap.today);
   const [metric, setMetric] = useState<Metric>('gross');
-  const [selectedMonth, setSelectedMonth] = useState<number | null>(8); // September
-  const [openMonth, setOpenMonth] = useState<number | null>(null);
-  const [reconOpen, setReconOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(Number(snap.today.slice(5, 7)) - 1);
 
-  const totals = useMemo(() => {
-    let gross = 0;
-    let deduction = 0;
-    let miles = 0;
-    let expenses = 0;
-    let dashes = 0;
-    for (const m of LAB_YEAR_2026) {
-      gross += m.grossCents;
-      deduction += m.deductionCents;
-      miles += m.miles;
-      expenses += m.expenseCents;
-      dashes += m.dashes;
-    }
-    return { gross, deduction, miles, expenses, dashes };
-  }, []);
+  const reviewed = useMemo(() => new Set(snap.weeklyClosures.map((c) => c.weekKey)), [snap.weeklyClosures]);
+  const totals = useMemo(
+    () => summariseYear(year, snap.shifts, snap.expenses, snap.receipts, reviewed, snap.mileageRates, snap.settings.implausibleMiles, snap.today),
+    [year, snap.shifts, snap.expenses, snap.receipts, reviewed, snap.mileageRates, snap.settings.implausibleMiles, snap.today],
+  );
+  const months = useMemo(
+    () => summariseYearByMonth(year, snap.shifts, snap.expenses, snap.settings.implausibleMiles),
+    [year, snap.shifts, snap.expenses, snap.settings.implausibleMiles],
+  );
+  const monthDeductions = useMemo(() => MONTHS.map((_, i) => {
+    const mm = String(i + 1).padStart(2, '0');
+    const shifts = snap.shifts.filter((s) => s.status === 'completed' && s.date.startsWith(`${year}-${mm}-`));
+    return estimateMileage(shifts, snap.mileageRates, snap.settings.implausibleMiles).estimateCents;
+  }), [year, snap.shifts, snap.mileageRates, snap.settings.implausibleMiles]);
 
-  const valueFor = (m: (typeof LAB_YEAR_2026)[number]): number =>
-    metric === 'gross' ? m.grossCents : metric === 'deduction' ? m.deductionCents : m.miles;
-
-  const max = Math.max(...LAB_YEAR_2026.map(valueFor), 1);
-  const selected = selectedMonth != null ? LAB_YEAR_2026[selectedMonth] : null;
-
-  const metricLabel = metric === 'gross' ? 'Gross income' : metric === 'deduction' ? 'Mileage deduction (estimate)' : 'Business miles';
+  const values = months.map((m, i) => metric === 'gross' ? m.grossIncomeCents : metric === 'deduction' ? monthDeductions[i] : m.businessMiles);
+  const max = Math.max(...values, 1);
+  const selected = selectedMonth == null ? null : months[selectedMonth];
+  const statement = snap.settings.statementTotals.find((s) => s.year === year);
 
   function fmtMetric(v: number): string {
-    return metric === 'miles' ? `${v.toLocaleString('en-US')} mi` : labMoney(v);
+    return metric === 'miles' ? `${v.toLocaleString('en-US')} mi` : formatCents(v);
   }
 
   return (
     <LabFrame
       concept={4}
       title="Year at a glance — trend first, filing numbers up front"
-      sub="Gross and the standard-mileage estimate lead; months are a tappable trend, not a wall of tiles; reconciliation stays guarded."
+      sub="The headline and month trend are calculated from the same live shifts, expenses, receipts, rates, and review state as the current UI."
     >
-      {/* hero: the two numbers that matter, with honest labels */}
       <section className="uxlab-year-hero">
         <div className="uxlab-year-hero__cell">
           <span className="uxlab-badge uxlab-badge--fact">Fact</span>
-          <div className="uxlab-year-hero__num uxlab-tabular">{labMoney(totals.gross)}</div>
-          <div className="uxlab-year-hero__sub">Gross income · 2026 · {totals.dashes} dashes</div>
+          <div className="uxlab-year-hero__num uxlab-tabular">{formatCents(totals.grossIncomeCents)}</div>
+          <div className="uxlab-year-hero__sub">Gross income · {year} · {totals.completedShiftCount} completed dashes</div>
         </div>
         <div className="uxlab-year-hero__cell uxlab-year-hero__cell--estimate">
           <span className="uxlab-badge uxlab-badge--estimate">Estimate</span>
-          <div className="uxlab-year-hero__num uxlab-tabular">{labMoney(totals.deduction)}</div>
-          <div className="uxlab-year-hero__sub">
-            Standard-mileage deduction · {totals.miles.toLocaleString('en-US')} business mi
-          </div>
+          <div className="uxlab-year-hero__num uxlab-tabular">{formatCents(totals.mileage.estimateCents)}</div>
+          <div className="uxlab-year-hero__sub">Standard-mileage deduction · {totals.businessMiles.toLocaleString('en-US')} business mi</div>
         </div>
       </section>
 
-      {/* trend */}
       <section className="uxlab-card">
-        <div className="uxlab-label">Month by month</div>
+        <div className="uxlab-label">Month by month · live</div>
         <div className="uxlab-metric-switch" role="group" aria-label="Chart metric">
-          {(
-            [
-              ['gross', 'Gross'],
-              ['deduction', 'Deduction'],
-              ['miles', 'Miles'],
-            ] as Array<[Metric, string]>
-          ).map(([key, lbl]) => (
-            <button
-              key={key}
-              type="button"
-              className={`uxlab-seg__btn ${metric === key ? 'uxlab-seg__btn--primary' : ''}`}
-              aria-pressed={metric === key}
-              onClick={() => setMetric(key)}
-            >
-              {lbl}
-            </button>
+          {([['gross', 'Gross'], ['deduction', 'Deduction'], ['miles', 'Miles']] as Array<[Metric, string]>).map(([key, label]) => (
+            <button key={key} type="button" className={`uxlab-seg__btn ${metric === key ? 'uxlab-seg__btn--primary' : ''}`} aria-pressed={metric === key} onClick={() => setMetric(key)}>{label}</button>
           ))}
         </div>
-        <div className="uxlab-chart" role="img" aria-label={`${metricLabel} by month, 2026`}>
-          {LAB_YEAR_2026.map((m, i) => {
-            const v = valueFor(m);
+        <div className="uxlab-chart" role="img" aria-label={`${metric} by month, ${year}`}>
+          {months.map((m, i) => {
+            const v = values[i];
             const h = Math.round((v / max) * 100);
             return (
               <button
-                key={m.label}
+                key={m.month}
                 type="button"
                 className={`uxlab-chart__col ${selectedMonth === i ? 'uxlab-chart__col--sel' : ''}`}
-                aria-label={`${m.label}: ${fmtMetric(v)}`}
+                aria-label={`${MONTHS[i]}: ${fmtMetric(v)}`}
                 aria-pressed={selectedMonth === i}
                 onClick={() => setSelectedMonth(selectedMonth === i ? null : i)}
               >
@@ -115,125 +84,33 @@ export function Concept4YearGlance() {
             );
           })}
         </div>
-        <div className="uxlab-chart__axis" aria-hidden>
-          {LAB_YEAR_2026.map((m) => (
-            <span key={m.label}>{m.label.slice(0, 1)}</span>
-          ))}
-        </div>
-        {selected && (
+        <div className="uxlab-chart__axis" aria-hidden>{MONTHS.map((m) => <span key={m}>{m.slice(0, 1)}</span>)}</div>
+        {selected && selectedMonth != null && (
           <div className="uxlab-chart-detail">
-            <div className="uxlab-chart-detail__cell">
-              <div className="uxlab-preview__num uxlab-tabular">{labMoney(selected.grossCents)}</div>
-              <div className="uxlab-preview__lbl">{selected.label} gross · fact</div>
-            </div>
-            <div className="uxlab-chart-detail__cell">
-              <div className="uxlab-preview__num uxlab-tabular">{labMoney(selected.deductionCents)}</div>
-              <div className="uxlab-preview__lbl">Deduction · estimate</div>
-            </div>
-            <div className="uxlab-chart-detail__cell">
-              <div className="uxlab-preview__num uxlab-tabular">{selected.miles} mi</div>
-              <div className="uxlab-preview__lbl">{selected.dashes} dashes</div>
-            </div>
-            <div className="uxlab-chart-detail__cell">
-              <div className="uxlab-preview__num uxlab-tabular">{labMoney(selected.expenseCents)}</div>
-              <div className="uxlab-preview__lbl">Tracked expenses</div>
-            </div>
+            <div className="uxlab-chart-detail__cell"><div className="uxlab-preview__num uxlab-tabular">{formatCents(selected.grossIncomeCents)}</div><div className="uxlab-preview__lbl">{MONTHS[selectedMonth]} gross · fact</div></div>
+            <div className="uxlab-chart-detail__cell"><div className="uxlab-preview__num uxlab-tabular">{formatCents(monthDeductions[selectedMonth])}</div><div className="uxlab-preview__lbl">Deduction · estimate</div></div>
+            <div className="uxlab-chart-detail__cell"><div className="uxlab-preview__num uxlab-tabular">{selected.businessMiles} mi</div><div className="uxlab-preview__lbl">{selected.dashCount} dashes</div></div>
+            <div className="uxlab-chart-detail__cell"><div className="uxlab-preview__num uxlab-tabular">{formatCents(selected.trackedExpensesCents)}</div><div className="uxlab-preview__lbl">Tracked expenses</div></div>
           </div>
-        )}
-        {!selected && (
-          <p className="small faint" style={{ marginTop: 10, marginBottom: 0 }}>
-            Tap any bar to inspect that month.
-          </p>
         )}
       </section>
 
-      {/* estimate vs actual comparison — kept explicit, never merged */}
       <section className="uxlab-card">
-        <div className="uxlab-label">Standard vs actual</div>
+        <div className="uxlab-label">Ledger health</div>
         <div className="uxlab-vs uxlab-tabular">
-          <span>
-            Standard method <strong>{labMoney(totals.deduction)}</strong> · actual vehicle expenses{' '}
-            <strong>{labMoney(totals.expenses)}</strong> — standard is higher in 2026 (estimate,
-            planning only).
-          </span>
+          <span>{totals.reviewedWeeks} reviewed week{totals.reviewedWeeks === 1 ? '' : 's'} · {totals.unresolvedRecordCount} unresolved record{totals.unresolvedRecordCount === 1 ? '' : 's'} · {totals.receiptCount} receipts</span>
         </div>
       </section>
 
-      {/* months drill-down */}
-      <section className="uxlab-card uxlab-months">
-        <div className="uxlab-label">Months with activity</div>
-        {LAB_YEAR_2026.filter((m) => m.dashes > 0).map((m) => {
-          const idx = LAB_YEAR_2026.indexOf(m);
-          const open = openMonth === idx;
-          return (
-            <div key={m.label}>
-              <button
-                type="button"
-                className="uxlab-row"
-                aria-expanded={open}
-                onClick={() => setOpenMonth(open ? null : idx)}
-              >
-                <span className="uxlab-row__main">
-                  <span className="uxlab-row__title">{m.label} 2026</span>
-                  <span className="uxlab-row__sub uxlab-tabular">
-                    {m.dashes} dashes · {m.miles} mi
-                  </span>
-                </span>
-                <span className="uxlab-row__value">
-                  <span className="uxlab-tabular">{labMoney(m.grossCents)}</span>
-                  <span className="uxlab-row__value-sub">{open ? 'close' : 'detail'}</span>
-                </span>
-              </button>
-              {open && (
-                <div className="uxlab-monthdetail uxlab-tabular">
-                  <span>Gross {labMoney(m.grossCents)}</span>
-                  <span>Deduction est. {labMoney(m.deductionCents)}</span>
-                  <span>Expenses {labMoney(m.expenseCents)}</span>
-                  <span>Rate {`$${labRateLabel(idx)}`}/mi</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </section>
-
-      {/* reconciliation — guarded, collapsed, clearly secondary */}
       <section className="uxlab-card">
-        <button
-          type="button"
-          className="uxlab-attention__summary"
-          aria-expanded={reconOpen}
-          onClick={() => setReconOpen(!reconOpen)}
-        >
-          <span>Reconcile DoorDash statements · <strong>nothing entered yet</strong></span>
-          <span aria-hidden>{reconOpen ? '▴' : '▾'}</span>
-        </button>
-        {reconOpen && (
-          <div className="uxlab-attention__body">
-            <div className="uxlab-attention__item">
-              <span className="uxlab-attention__dot uxlab-attention__dot--info" aria-hidden />
-              <span>
-                Enter the totals DoorDash reports for 2026 and Dash Ledger shows the difference
-                against your records — it never auto-matches or "fixes" either side.
-              </span>
-            </div>
-            <div className="uxlab-seg">
-              <button type="button" className="uxlab-seg__btn">Enter statement totals…</button>
-            </div>
-          </div>
-        )}
+        <div className="uxlab-label">DoorDash statement reconciliation</div>
+        <p className="small muted" style={{ marginTop: 0 }}>
+          {statement?.appEarningsCents == null
+            ? `No ${year} statement total entered yet.`
+            : `Statement app earnings: ${formatCents(statement.appEarningsCents)} · ledger app earnings: ${formatCents(totals.appEarningsCents)}.`}
+        </p>
+        <button type="button" className="uxlab-btn" onClick={() => navigate(`/vault?s=year&y=${year}&demo=1`)}>Open full Year / reconciliation →</button>
       </section>
-
-      <p className="small faint" style={{ margin: 0 }}>
-        Production comparison: Vault → Year currently opens on a flat 8-tile grid; the trend table
-        and reconciliation sit below the fold. Here the year answers "how much did I make and what
-        might it deduct?" at the fold, with drill-down one tap deep.
-      </p>
     </LabFrame>
   );
-}
-
-function labRateLabel(monthIndex: number): string {
-  // 2026 H1 0.725 / H2 0.760 — mirrors the seeded effective-dated rates.
-  return monthIndex <= 5 ? '0.725' : '0.760';
 }

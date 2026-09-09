@@ -22,16 +22,13 @@ function readDemoState() {
 }
 
 /**
- * UX Lab isolation switch (branch: ui-ux-redesign-lab).
+ * Five-UI demo switch.
  *
- * Hash `#/ux-lab…` renders the standalone experimental tree INSTEAD of the
- * canonical app. Because the decision happens here — above LedgerProvider —
- * a lab session never mounts the store and never touches IndexedDB. Exiting
- * the lab mounts the normal app exactly as shipped.
- *
- * `?demo=1` enables the compact five-position demo selector on the canonical
- * app. Lab routes always show it so a tester can move Current ⇄ Concepts 1–4
- * without hunting through the lab index.
+ * LedgerProvider deliberately stays mounted above BOTH the canonical app and
+ * every alternate UI. All five surfaces therefore share the same live snapshot,
+ * the same mutation/reload channel, and the same IndexedDB database on this
+ * origin. Switching UI is presentation-only; it must never swap in a mock store
+ * or reset/reseed the user's ledger.
  */
 function Root() {
   const [state, setState] = useState(readDemoState);
@@ -43,16 +40,10 @@ function Root() {
   }, []);
 
   return (
-    <>
-      {state.lab ? (
-        <UxLabApp />
-      ) : (
-        <LedgerProvider>
-          <App />
-        </LedgerProvider>
-      )}
+    <LedgerProvider>
+      {state.lab ? <UxLabApp /> : <App />}
       {(state.lab || state.demo) && <UxDemoSwitcher />}
-    </>
+    </LedgerProvider>
   );
 }
 
