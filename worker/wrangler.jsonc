@@ -1,0 +1,27 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "dash-ledger-gpt-bridge",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "dash-ledger-gpt-bridge",
+			"database_id": "c032561a-3bd4-45ec-9f1d-0e0cf7c6ecd5",
+			"migrations_dir": "migrations"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "OAUTH_KV",
+			"id": "a00990dfb8a04d90bcdfe046cfab1f9c"
+		}
+	],
+	"vars": {
+		"ALLOWED_ORIGINS": "https://westkitty.github.io,http://localhost:5173,http://127.0.0.1:5173"
+	}
+}

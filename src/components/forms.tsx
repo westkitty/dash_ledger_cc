@@ -39,16 +39,17 @@ interface BaseProps {
   inputMode?: 'text' | 'numeric' | 'decimal';
   autoFocus?: boolean;
   required?: boolean;
+  type?: 'text' | 'password';
 }
 
-export function TextInput({ label, hint, error, value, onChange, placeholder, autoFocus, required }: BaseProps) {
+export function TextInput({ label, hint, error, value, onChange, placeholder, autoFocus, required, type = 'text' }: BaseProps) {
   const id = useId();
   return (
     <Field label={label} hint={hint} error={error} htmlFor={id}>
       <input
         id={id}
         className="input"
-        type="text"
+        type={type}
         value={value}
         placeholder={placeholder}
         autoFocus={autoFocus}

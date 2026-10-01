@@ -7,8 +7,8 @@
   "project_name": "Dash Ledger",
   "project_root": ".",
   "artifact_path": ".github/workflows/pages.yml",
-  "state_revision": 2,
-  "last_updated": "2026-09-09",
+  "state_revision": 3,
+  "last_updated": "2026-10-01",
   "current_baseline": {
     "identity": "main@a4f5a981421b423959ee0a638a8a07faf9d71795",
     "state": "implemented-unverified",
@@ -126,3 +126,11 @@ No confirmed deployment-specific defect is recorded at this revision.
 - **State deltas:** Initialized operational state for the GitHub Pages/Greyson iPhone test deployment task.
 - **New evidence:** Confirmed canonical repo identity, current build/PWA configuration, existing read-only CI, and connector limitation around Pages settings.
 - **Validation not performed:** No live GitHub Pages deployment or physical iPhone installation had yet been observed.
+
+### Revision 3 — 2026-10-01
+
+- **Artifact/source identity:** `feature/gpt-bridge-zero-cost` with optional GPT Bridge Worker/PWA/plugin (see `DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN_operational_state.md` rev 2).
+- **State deltas:** Optional Cloudflare free-tier bridge deployed; IndexedDB remains canonical. No change to required paid infra. ChatGPT Developer-mode install still manual.
+- **New evidence:** Live Worker health/CORS/auth smoke; local 255-test suite; Worker check; packaged plugin zip under `dist-plugin/` (gitignored).
+- **Validation not performed:** ChatGPT UI OAuth/tool session; post-merge GitHub Pages confirmation for the new default bridge URL.
+

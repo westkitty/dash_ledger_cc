@@ -1,0 +1,58 @@
+name: GPT Bridge CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - 'plugin/**'
+      - 'src/services/gptBridge.ts'
+      - 'src/features/settings/**'
+      - 'src/components/forms.tsx'
+      - 'src/tests/gptBridge.test.ts'
+      - '.github/workflows/gpt-bridge-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpt-bridge-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    name: Worker typecheck · test · dry build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install exact declared dependencies
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Check Worker
+        run: npm run check
+
+  plugin-source:
+    name: Plugin source validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Validate portable plugin source
+        run: node plugin/scripts/validate.mjs --source-only
