@@ -1,4 +1,3 @@
-import type { ExportedHandler } from '@cloudflare/workers-types';
 import type { Env } from './env';
 import { LIMITS } from './env';
 import {
@@ -310,7 +309,7 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
   return Response.redirect(completed.redirectTo, 302);
 }
 
-export const defaultHandler: ExportedHandler<Env> = {
+export const defaultHandler = {
   async fetch(request, env) {
     const url = new URL(request.url);
 
