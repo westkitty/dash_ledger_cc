@@ -343,7 +343,7 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
 }
 
 export const defaultHandler = {
-  async fetch(request, env) {
+  async fetch(request: Request, env: Env) {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS' && url.pathname.startsWith('/sync/')) {
