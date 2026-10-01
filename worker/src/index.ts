@@ -24,6 +24,31 @@ function providerFor(request: Request) {
 
 export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    const url = new URL(request.url);
+    // Serve OpenAI plugin domain verification outside the OAuth provider,
+    // which owns other /.well-known OAuth discovery routes.
+    if (
+      url.pathname === '/.well-known/openai-apps-challenge' &&
+      request.method === 'GET'
+    ) {
+      const token = env.OPENAI_APPS_CHALLENGE_TOKEN?.trim();
+      return token
+        ? new Response(token, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-store',
+              'X-Content-Type-Options': 'nosniff',
+            },
+          })
+        : new Response('not_configured', {
+            status: 404,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-store',
+            },
+          });
+    }
     return providerFor(request).fetch(request, env, ctx);
   },
 };
