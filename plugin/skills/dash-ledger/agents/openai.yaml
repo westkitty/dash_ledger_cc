@@ -1,2 +1,4 @@
 interface:
   display_name: "Dash Ledger"
+  short_description: "Review delivery ledger data"
+  default_prompt: "How am I doing today?"

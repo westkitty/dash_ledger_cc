@@ -355,6 +355,7 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
     props: {
       userId: user.id,
       displayLabel: user.display_label,
+      scopes: grantedScopes,
     },
   });
   return Response.redirect(completed.redirectTo, 302);

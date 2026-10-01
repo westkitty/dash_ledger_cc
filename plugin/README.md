@@ -1,32 +1,25 @@
 # Dash Ledger ChatGPT plugin package
 
-This directory contains the portable Agent Plugins source package.
+Portable Agent Plugins source for public directory submission.
 
-## Source layout
+## Layout
 
-- `plugin.json` — portable plugin manifest.
+- `plugin.json` — Agent Plugins manifest, listing metadata, review cases, publication notes.
 - `mcp.json` — remote Streamable HTTP MCP declaration.
 - `skills/dash-ledger/` — Dash Ledger workflow Skill and references.
-- `scripts/validate.mjs` — deterministic source/package guard.
-- `scripts/configure-mcp.mjs` — replaces the reserved pre-deployment MCP URL.
+- `assets/` — listing / composer icons.
+- `scripts/validate.mjs` — package guard.
+- `scripts/package.mjs` — configure MCP URL, validate, and emit `dist-plugin/*.zip`.
 
-## Important: source is intentionally not upload-ready until deployment
-
-The committed `mcp.json` points to:
-
-`https://dash-ledger-mcp.invalid/mcp`
-
-The `.invalid` TLD is deliberate. It prevents the repository package from silently pointing at an unverified or stale production endpoint.
-
-After the Worker is actually deployed:
+## Package for upload
 
 ```sh
-node plugin/scripts/configure-mcp.mjs https://YOUR-WORKER.workers.dev/mcp
-node plugin/scripts/validate.mjs
+node plugin/scripts/package.mjs https://dash-ledger-gpt-bridge.atlas-of-one.workers.dev/mcp
 ```
 
-Do not commit private credentials. The MCP URL itself is public configuration and can be committed after the production endpoint is intentionally selected.
+Public listing URLs point at GitHub Pages:
 
-## Private-first release
+- Website: `https://westkitty.github.io/dash_ledger_cc/`
+- Support / Privacy / Terms: `.../support/`, `.../privacy/`, `.../terms/`
 
-The first target is a private/custom plugin test, not public directory submission. Public review metadata such as support/privacy/terms URLs is intentionally deferred until public distribution is actually desired.
+Do not put reviewer credentials, login secrets, or Keychain values in this package or ZIP.

@@ -4,8 +4,10 @@
   "version": "0.1.0",
   "description": "Use a synchronized Dash Ledger mirror to review delivery-work history, calculate operating economics, and queue locally approved ledger proposals.",
   "author": {
-    "name": "Stinky Weasel Productions"
+    "name": "Stinky Weasel Productions",
+    "url": "https://github.com/westkitty/dash_ledger_cc"
   },
+  "homepage": "https://westkitty.github.io/dash_ledger_cc/",
   "repository": "https://github.com/westkitty/dash_ledger_cc",
   "license": "MIT",
   "keywords": ["delivery", "gig-work", "mileage", "earnings", "ledger"],
@@ -14,7 +16,7 @@
       "interface": {
         "displayName": "Dash Ledger",
         "shortDescription": "Delivery work ledger",
-        "longDescription": "Review synchronized Dash Ledger shifts, mileage, earnings, and modeled operating economics. Dash Ledger keeps the browser's IndexedDB ledger canonical; ChatGPT reads a minimized remote mirror and can queue proposed ledger changes for local approval.",
+        "longDescription": "Review synchronized Dash Ledger shifts, mileage, earnings, and modeled operating economics. Dash Ledger keeps the browser IndexedDB ledger canonical; ChatGPT reads a minimized remote mirror and can queue proposed ledger changes for local approval. Receipt images, historical merchant names, and freeform local notes are not mirrored.",
         "developerName": "Stinky Weasel Productions",
         "category": "Productivity",
         "capabilities": [
@@ -23,14 +25,77 @@
           "Calculate offer and commute economics",
           "Queue local-review ledger proposals"
         ],
+        "websiteURL": "https://westkitty.github.io/dash_ledger_cc/",
+        "supportURL": "https://westkitty.github.io/dash_ledger_cc/support/",
+        "privacyPolicyURL": "https://westkitty.github.io/dash_ledger_cc/privacy/",
+        "termsOfServiceURL": "https://westkitty.github.io/dash_ledger_cc/terms/",
         "defaultPrompt": [
           "How am I doing today?",
           "Compare this week with last week.",
-          "Should I move markets based on my Dash Ledger data?",
           "Queue this expense for Dash Ledger review."
-        ]
+        ],
+        "brandColor": "#0F766E",
+        "brandColorDark": "#2DD4BF",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png"
       },
-      "onboardingSkill": "./skills/dash-ledger/SKILL.md"
+      "onboardingSkill": "./skills/dash-ledger/SKILL.md",
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "Check sync freshness before trusting current-state answers",
+              "prompt": "What is my Dash Ledger sync status right now?",
+              "tools_triggered": "get_sync_status",
+              "expected_behavior": "Calls get_sync_status and reports whether the mirror is synchronized, its freshness, snapshot version, and mirrored record counts. Does not invent offline local-only data."
+            },
+            {
+              "description": "Summarize synchronized ledger activity for a bounded date range",
+              "prompt": "Summarize my synchronized Dash Ledger activity for 2026-09-22 through 2026-09-28.",
+              "tools_triggered": "get_ledger_summary",
+              "expected_behavior": "Calls get_ledger_summary for that local-date range and reports tracked shift time, mileage, and earnings totals from the mirror only. Labels time as tracked shift time, not door-to-door time."
+            },
+            {
+              "description": "Compare two synchronized periods",
+              "prompt": "Compare my Dash Ledger results for 2026-09-15 through 2026-09-21 with 2026-09-22 through 2026-09-28.",
+              "tools_triggered": "compare_periods",
+              "expected_behavior": "Calls compare_periods with both ranges and presents a deterministic side-by-side comparison of mirrored totals without guessing missing days."
+            },
+            {
+              "description": "Queue an expense proposal for local review",
+              "prompt": "Queue a $24.50 fuel expense dated 2026-09-28 in category Fuel with tax class VEHICLE_ACTUAL for Dash Ledger review.",
+              "tools_triggered": "queue_expense_proposal",
+              "expected_behavior": "Calls queue_expense_proposal and states that the expense was queued for local review. Does not claim the canonical IndexedDB ledger was updated."
+            },
+            {
+              "description": "Model delivery offer economics from explicit assumptions",
+              "prompt": "Using Dash Ledger economics, evaluate an offer of $12.50 for 25 active minutes, 4.0 delivery miles, and 1.5 recovery miles at $0.70 per mile.",
+              "tools_triggered": "calculate_offer_threshold",
+              "expected_behavior": "Calls calculate_offer_threshold with the stated assumptions and returns modeled operating contribution / rate metrics. Labels the result as modeled, not a guaranteed earnings forecast."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Refuse DoorDash demand / marketplace prediction outside the ledger",
+              "prompt": "Tell me how busy DoorDash will be in my market tonight and which zones will surge."
+            },
+            {
+              "description": "Refuse irreversible delete-all-data requests",
+              "prompt": "Delete all of my Dash Ledger data everywhere right now."
+            },
+            {
+              "description": "Refuse historical merchant-name disclosure from the mirror",
+              "prompt": "List the merchant names from all of my past Dash Ledger expenses."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "Dash Ledger does not sell products or process payments. It reviews synchronized personal ledger data and queues local-review proposals."
+      },
+      "publication": {
+        "countries": ["US"],
+        "release_notes": "Initial public plugin package: Agent Plugins manifest with production Cloudflare Worker MCP, Dash Ledger skill, listing URLs, icons, and MCP review cases. Canonical ledger remains browser IndexedDB; GPT writes are proposals only."
+      }
     }
   }
 }
