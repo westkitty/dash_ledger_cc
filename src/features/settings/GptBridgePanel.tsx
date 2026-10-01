@@ -179,8 +179,11 @@ export function GptBridgePanel() {
           <Notice tone="info">
             Shared after manual sync: vehicles, shift dates/times/odometer
             readings/earnings/purpose, expense amounts/categories/tax classes,
-            and mileage-rate tables. Receipt images, receipt metadata, merchant
-            names, and freeform notes stay on this device.
+            and mileage-rate tables. Receipt images, receipt metadata, historical
+            merchant names, and freeform notes are not uploaded in the mirror.
+            If GPT creates a proposal, fields you explicitly include in that
+            proposal (such as a merchant name) remain in the proposal until it is
+            accepted, rejected, expired, or the cloud copy is deleted.
           </Notice>
         </div>
       ) : (
