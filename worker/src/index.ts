@@ -26,4 +26,4 @@ export default {
   fetch(request: Request, env: Env, ctx: ExecutionContext) {
     return providerFor(request).fetch(request, env, ctx);
   },
-} satisfies ExportedHandler<Env>;
+};
