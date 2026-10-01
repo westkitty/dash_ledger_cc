@@ -37,18 +37,18 @@ export interface ShiftRow {
   id: string;
   status: 'active' | 'completed';
   date: string;
-  week_key: string;
-  vehicle_id: string;
-  vehicle_label: string;
-  start_time: string | null;
-  end_time: string | null;
-  start_odometer: number | null;
-  end_odometer: number | null;
-  app_earnings_cents: number | null;
-  cash_tips_cents: number | null;
+  weekKey: string;
+  vehicleId: string;
+  vehicleLabel: string;
+  startTime: string | null;
+  endTime: string | null;
+  startOdometer: number | null;
+  endOdometer: number | null;
+  appEarningsCents: number | null;
+  cashTipsCents: number | null;
   purpose: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProposalRow {
@@ -209,8 +209,10 @@ export async function getSyncState(env: Env, userId: string): Promise<SyncStateR
 
 export async function getRecentShifts(env: Env, userId: string, limit: number): Promise<ShiftRow[]> {
   const result = await env.DB.prepare(
-    'SELECT id, status, date, week_key, vehicle_id, vehicle_label, start_time, end_time, ' +
-      'start_odometer, end_odometer, app_earnings_cents, cash_tips_cents, purpose, created_at, updated_at ' +
+    'SELECT id, status, date, week_key AS weekKey, vehicle_id AS vehicleId, vehicle_label AS vehicleLabel, ' +
+      'start_time AS startTime, end_time AS endTime, start_odometer AS startOdometer, end_odometer AS endOdometer, ' +
+      'app_earnings_cents AS appEarningsCents, cash_tips_cents AS cashTipsCents, purpose, ' +
+      'created_at AS createdAt, updated_at AS updatedAt ' +
       'FROM shifts WHERE user_id = ? ORDER BY date DESC, start_time DESC LIMIT ?',
   ).bind(userId, limit).all<ShiftRow>();
   return result.results;
@@ -218,8 +220,10 @@ export async function getRecentShifts(env: Env, userId: string, limit: number): 
 
 export async function getShift(env: Env, userId: string, shiftId: string): Promise<ShiftRow | null> {
   return env.DB.prepare(
-    'SELECT id, status, date, week_key, vehicle_id, vehicle_label, start_time, end_time, ' +
-      'start_odometer, end_odometer, app_earnings_cents, cash_tips_cents, purpose, created_at, updated_at ' +
+    'SELECT id, status, date, week_key AS weekKey, vehicle_id AS vehicleId, vehicle_label AS vehicleLabel, ' +
+      'start_time AS startTime, end_time AS endTime, start_odometer AS startOdometer, end_odometer AS endOdometer, ' +
+      'app_earnings_cents AS appEarningsCents, cash_tips_cents AS cashTipsCents, purpose, ' +
+      'created_at AS createdAt, updated_at AS updatedAt ' +
       'FROM shifts WHERE user_id = ? AND id = ?',
   ).bind(userId, shiftId).first<ShiftRow>();
 }
@@ -231,8 +235,10 @@ export async function getShiftsInRange(
   endDate: string,
 ): Promise<ShiftRow[]> {
   const result = await env.DB.prepare(
-    'SELECT id, status, date, week_key, vehicle_id, vehicle_label, start_time, end_time, ' +
-      'start_odometer, end_odometer, app_earnings_cents, cash_tips_cents, purpose, created_at, updated_at ' +
+    'SELECT id, status, date, week_key AS weekKey, vehicle_id AS vehicleId, vehicle_label AS vehicleLabel, ' +
+      'start_time AS startTime, end_time AS endTime, start_odometer AS startOdometer, end_odometer AS endOdometer, ' +
+      'app_earnings_cents AS appEarningsCents, cash_tips_cents AS cashTipsCents, purpose, ' +
+      'created_at AS createdAt, updated_at AS updatedAt ' +
       'FROM shifts WHERE user_id = ? AND date >= ? AND date <= ? ORDER BY date, start_time',
   ).bind(userId, startDate, endDate).all<ShiftRow>();
   return result.results;
