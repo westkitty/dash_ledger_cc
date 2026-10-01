@@ -1,4 +1,4 @@
-import OAuthProvider from '@cloudflare/workers-oauth-provider';
+import { OAuthProvider } from '@cloudflare/workers-oauth-provider';
 import type { Env } from './env';
 import { defaultHandler } from './auth';
 import { mcpApiHandler } from './mcp';
