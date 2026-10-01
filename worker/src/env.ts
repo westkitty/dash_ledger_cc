@@ -7,6 +7,8 @@ export interface Env {
   AUTH_PEPPER: string;
   BOOTSTRAP_SECRET: string;
   ALLOWED_ORIGINS?: string;
+  /** Optional plain-text token for OpenAI plugin domain verification. */
+  OPENAI_APPS_CHALLENGE_TOKEN?: string;
 }
 
 export const LIMITS = {
