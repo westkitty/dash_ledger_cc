@@ -357,6 +357,24 @@ export async function resolveProposal(
   return (result.meta?.changes ?? 0) > 0;
 }
 
+
+export async function deleteRemoteUserData(
+  env: Env,
+  userId: string,
+): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM vehicles WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM shifts WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM expenses WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM mileage_rates WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM sync_state WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM remote_inbox WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM audit_events WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM usage_daily WHERE user_id = ?').bind(userId),
+    env.DB.prepare('DELETE FROM devices WHERE user_id = ?').bind(userId),
+  ]);
+}
+
 export function publicProposal(row: ProposalRow) {
   return {
     id: row.id,
