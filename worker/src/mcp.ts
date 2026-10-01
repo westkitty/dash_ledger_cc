@@ -28,6 +28,27 @@ function jsonResult(value: unknown) {
   };
 }
 
+
+function grantedScopes(context: { http?: { authInfo?: { scopes?: string[]; clientId?: string } } }): string[] {
+  const fromHttp = context.http?.authInfo?.scopes;
+  if (Array.isArray(fromHttp) && fromHttp.length) return fromHttp;
+  const auth = getMcpAuthContext();
+  const fromProps = auth?.props?.scopes;
+  if (Array.isArray(fromProps) && fromProps.every((s) => typeof s === 'string')) {
+    return fromProps as string[];
+  }
+  if (typeof fromProps === 'string') {
+    return fromProps.split(/\s+/).filter(Boolean);
+  }
+  return [];
+}
+
+function requireProposeScope(context: { http?: { authInfo?: { scopes?: string[]; clientId?: string } } }) {
+  if (!grantedScopes(context).includes('ledger.propose')) {
+    throw new Error('insufficient_scope: ledger.propose is required.');
+  }
+}
+
 function userIdFromContext(): string {
   const auth = getMcpAuthContext();
   const userId = auth?.props?.userId;
@@ -58,6 +79,11 @@ export function buildMcpServer(env: Env) {
       description:
         'Return the freshness and version of the synchronized Dash Ledger mirror.',
       inputSchema: {},
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async () => {
       const userId = userIdFromContext();
@@ -109,6 +135,11 @@ export function buildMcpServer(env: Env) {
         startDate: LocalDateSchema,
         endDate: LocalDateSchema,
       },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async ({ startDate, endDate }) => {
       const userId = userIdFromContext();
@@ -135,6 +166,11 @@ export function buildMcpServer(env: Env) {
       inputSchema: {
         limit: z.number().int().min(1).max(100).default(20),
       },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async ({ limit }) => {
       const userId = userIdFromContext();
@@ -149,6 +185,11 @@ export function buildMcpServer(env: Env) {
     {
       description: 'Return one synchronized shift by ID.',
       inputSchema: { shiftId: z.string().min(1).max(128) },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async ({ shiftId }) => {
       const userId = userIdFromContext();
@@ -168,6 +209,11 @@ export function buildMcpServer(env: Env) {
         aEndDate: LocalDateSchema,
         bStartDate: LocalDateSchema,
         bEndDate: LocalDateSchema,
+      },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
       },
     },
     async ({ aStartDate, aEndDate, bStartDate, bEndDate }) => {
@@ -202,6 +248,11 @@ export function buildMcpServer(env: Env) {
       description:
         'Count synchronized records that need human review. Receipt-image issues are local-only and intentionally excluded.',
       inputSchema: {},
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async () => {
       const userId = userIdFromContext();
@@ -223,6 +274,11 @@ export function buildMcpServer(env: Env) {
         returnMinutes: z.number().nonnegative(),
         vehicleCostPerMile: z.number().nonnegative(),
         valueOfTimePerHour: z.number().nonnegative(),
+      },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
       },
     },
     async (input) => jsonResult(calculateCommuteHurdle(input)),
@@ -247,6 +303,11 @@ export function buildMcpServer(env: Env) {
           .nonnegative()
           .optional(),
       },
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async (input) => jsonResult(calculateOffer(input)),
   );
@@ -257,12 +318,15 @@ export function buildMcpServer(env: Env) {
       description:
         'Queue an expense proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
       inputSchema: ExpenseProposalSchema.shape,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async (input, context) => {
       const userId = userIdFromContext();
-      if (!(context.http?.authInfo?.scopes ?? []).includes('ledger.propose')) {
-        throw new Error('insufficient_scope: ledger.propose is required.');
-      }
+      requireProposeScope(context);
       const parsed = ExpenseProposalSchema.parse(input);
       return counted(env, userId, async () => {
         await incrementUsage(env, userId, 'proposals');
@@ -288,12 +352,15 @@ export function buildMcpServer(env: Env) {
       description:
         'Queue a bounded shift-update proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
       inputSchema: ShiftUpdateProposalSchema.shape,
+      annotations: {
+        readOnlyHint: false,
+        openWorldHint: false,
+        destructiveHint: false,
+      },
     },
     async (input, context) => {
       const userId = userIdFromContext();
-      if (!(context.http?.authInfo?.scopes ?? []).includes('ledger.propose')) {
-        throw new Error('insufficient_scope: ledger.propose is required.');
-      }
+      requireProposeScope(context);
       const parsed = ShiftUpdateProposalSchema.parse(input);
       const shift = await getShift(env, userId, parsed.shiftId);
       if (!shift) {

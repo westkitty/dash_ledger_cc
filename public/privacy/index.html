@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dash Ledger Privacy Policy</title>
+  <style>
+    body { font-family: system-ui, sans-serif; line-height: 1.5; max-width: 44rem; margin: 2rem auto; padding: 0 1rem; color: #0b1020; }
+    h1, h2 { line-height: 1.2; }
+    a { color: #0f766e; }
+  </style>
+</head>
+<body>
+  <h1>Dash Ledger Privacy Policy</h1>
+  <p>Last updated: 2026-10-01</p>
+  <p>Dash Ledger is a local-first delivery-work ledger. This policy describes how the optional ChatGPT / MCP bridge handles data.</p>
+
+  <h2>Canonical data location</h2>
+  <p>Your authoritative ledger remains in your browser’s IndexedDB on the device where you use the Dash Ledger web app. Ordinary app use does not require an account or a cloud database.</p>
+
+  <h2>Optional synchronization</h2>
+  <p>If you explicitly enable GPT Bridge sync, Dash Ledger uploads a minimized structured snapshot to a free-tier Cloudflare Worker and D1 mirror so ChatGPT can read synchronized history through MCP. Sync is opt-in and can be disconnected at any time.</p>
+
+  <h2>What the mirror stores</h2>
+  <p>The remote mirror is limited to structured delivery-work fields needed for summaries and proposals, such as shift timing, odometer values, earnings totals, expense amounts/categories, vehicles, and mileage rates.</p>
+  <p>The bridge intentionally does <strong>not</strong> mirror:</p>
+  <ul>
+    <li>receipt images or other media bytes;</li>
+    <li>historical merchant name fields from the local ledger;</li>
+    <li>freeform local notes from the canonical ledger.</li>
+  </ul>
+  <p>Expense proposals created through ChatGPT may include merchant or note text you supply in that proposal; those values live in the remote proposal inbox until you accept or reject them in the local app.</p>
+
+  <h2>Authentication</h2>
+  <p>Connecting ChatGPT uses OAuth 2.1 against the Dash Ledger GPT Bridge. Login uses a user ID and login secret you control. The bridge does not use email/SMS MFA for the reviewer or ordinary pairing flow described here.</p>
+
+  <h2>Writes from ChatGPT</h2>
+  <p>ChatGPT cannot silently rewrite your canonical ledger. Write tools only queue proposals for local review. Accepted proposals are applied by the local app; rejected proposals are discarded remotely.</p>
+
+  <h2>Disconnect and deletion of cloud copy</h2>
+  <p>Disconnecting GPT Bridge deletes the remote mirror and proposal inbox for that connection and revokes related OAuth grants for that sync path. Your local IndexedDB ledger remains on your device unless you clear it yourself in the browser.</p>
+
+  <h2>Infrastructure and third parties</h2>
+  <p>The optional bridge runs on Cloudflare Workers, D1, and KV under a free-tier cost model. OpenAI/ChatGPT receives only the tool inputs/outputs exchanged while the plugin is connected. Dash Ledger and the Worker do not call the OpenAI API on your behalf.</p>
+
+  <h2>Contact</h2>
+  <p>Privacy questions: use the <a href="../support/">support page</a> or open an issue at <a href="https://github.com/westkitty/dash_ledger_cc/issues">github.com/westkitty/dash_ledger_cc/issues</a>.</p>
+</body>
+</html>

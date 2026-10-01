@@ -61,6 +61,74 @@ if (skillText.includes('TODO') || skillText.includes('[TODO')) {
   fail('SKILL.md still contains a placeholder.');
 }
 
+const openai = manifest.extensions?.['com.openai'];
+const iface = openai?.interface;
+if (!iface) {
+  fail('extensions.com.openai.interface is required for submission.');
+} else {
+  for (const key of [
+    'displayName',
+    'shortDescription',
+    'longDescription',
+    'developerName',
+    'category',
+    'websiteURL',
+    'supportURL',
+    'privacyPolicyURL',
+    'termsOfServiceURL',
+    'logo',
+    'composerIcon',
+  ]) {
+    if (!iface[key]) fail('interface.' + key + ' is required.');
+  }
+  for (const key of [
+    'websiteURL',
+    'supportURL',
+    'privacyPolicyURL',
+    'termsOfServiceURL',
+  ]) {
+    const value = iface[key];
+    if (typeof value === 'string' && !value.startsWith('https://')) {
+      fail('interface.' + key + ' must be HTTPS.');
+    }
+  }
+  if (typeof iface.displayName === 'string' && [...iface.displayName].length > 30) {
+    fail('displayName must be <= 30 characters.');
+  }
+  if (typeof iface.shortDescription === 'string' && [...iface.shortDescription].length > 30) {
+    fail('shortDescription must be <= 30 characters.');
+  }
+  const prompts = Array.isArray(iface.defaultPrompt)
+    ? iface.defaultPrompt
+    : iface.defaultPrompt
+      ? [iface.defaultPrompt]
+      : [];
+  if (prompts.length > 3) fail('defaultPrompt must contain at most 3 prompts.');
+  for (const asset of [iface.logo, iface.composerIcon]) {
+    if (typeof asset === 'string') {
+      const rel = asset.replace(/^\.\//, '');
+      if (!fs.existsSync(path.join(root, rel))) fail('Missing asset file: ' + asset);
+    }
+  }
+}
+
+const review = openai?.review?.test_cases;
+if (!sourceOnly) {
+  if (!review) {
+    fail('review.test_cases are required before packaging for public submission.');
+  } else {
+    if (!Array.isArray(review.positive) || review.positive.length !== 5) {
+      fail('Exactly 5 positive review cases are required.');
+    }
+    if (!Array.isArray(review.negative) || review.negative.length !== 3) {
+      fail('Exactly 3 negative review cases are required.');
+    }
+  }
+  if (!openai?.publication?.release_notes) {
+    fail('publication.release_notes are required before packaging for public submission.');
+  }
+}
+
 if (!process.exitCode) {
   console.log(sourceOnly ? 'Plugin source validation PASS' : 'Plugin package validation PASS');
 }

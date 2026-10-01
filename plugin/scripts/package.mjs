@@ -37,7 +37,7 @@ if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
 const zip = spawnSync(
   'zip',
-  ['-r', '-X', zipPath, 'plugin.json', 'mcp.json', 'skills', 'README.md'],
+  ['-r', '-X', zipPath, 'plugin.json', 'mcp.json', 'skills', 'assets', 'README.md'],
   { cwd: root, stdio: 'inherit' },
 );
 if (zip.status !== 0) {
