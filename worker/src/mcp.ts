@@ -327,7 +327,7 @@ export function buildMcpServer(env: Env) {
   return server;
 }
 
-export const mcpApiHandler: ExportedHandler<Env> = {
+export const mcpApiHandler = {
   fetch(request, env, ctx) {
     return createMcpHandler(() => buildMcpServer(env))(request, env, ctx);
   },
