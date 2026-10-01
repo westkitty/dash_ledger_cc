@@ -8,3 +8,6 @@ coverage
 *.tsbuildinfo
 *.log
 npm-debug.log*
+
+# GPT plugin packaging output
+dist-plugin/

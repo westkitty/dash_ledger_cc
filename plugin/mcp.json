@@ -3,7 +3,7 @@
   "mcpServers": {
     "dash-ledger": {
       "type": "streamable-http",
-      "url": "https://dash-ledger-mcp.invalid/mcp"
+      "url": "https://dash-ledger-gpt-bridge.atlas-of-one.workers.dev/mcp"
     }
   }
 }

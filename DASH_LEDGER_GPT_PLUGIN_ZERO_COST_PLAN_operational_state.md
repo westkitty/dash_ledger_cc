@@ -7,16 +7,16 @@
   "project_name": "Dash Ledger GPT Bridge",
   "project_root": ".",
   "artifact_path": "DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md",
-  "state_revision": 1,
+  "state_revision": 2,
   "last_updated": "2026-10-01",
   "current_baseline": {
-    "identity": "DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md@8785911d1dd68351aa9bf68c12d31ca5fce96bec",
-    "state": "current-baseline",
+    "identity": "worker deployed + PWA bridge on feature/gpt-bridge-zero-cost",
+    "state": "implemented-partially-verified",
     "last_verified": "2026-10-01"
   },
   "scope_boundaries": [
-    "GPT Bridge architecture and implementation planning only",
-    "No Dash Ledger runtime, IndexedDB, deployment, authentication, Cloudflare, MCP, plugin, or synchronization implementation is represented as completed by this state"
+    "Optional zero-cost GPT Bridge: Cloudflare Worker + D1 mirror + KV OAuth + PWA sync/inbox + plugin package",
+    "IndexedDB remains canonical; Cloudflare is disposable mirror/proposal bridge only"
   ],
   "linked_parent_state": "OPERATIONAL_STATE.md"
 }
@@ -25,100 +25,89 @@
 ## 1. Project Identity and Scope
 
 - **Project ID:** dash-ledger-gpt-bridge
-- **Purpose:** Add an optional zero-cost ChatGPT plugin/MCP bridge to Dash Ledger without replacing its local-first canonical ledger.
-- **Project type:** Planned optional subsystem.
+- **Purpose:** Optional zero-cost ChatGPT plugin/MCP bridge without replacing local-first canonical ledger.
 - **Primary artifact:** DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md
 - **Parent project:** westkitty/dash_ledger_cc
-- **Canonical planning authority:** The zero-cost plan at commit 8785911d1dd68351aa9bf68c12d31ca5fce96bec plus newer explicit user instructions.
-- **Explicitly not represented by this state:** implementation, deployment, OAuth setup, Cloudflare resources, remote synchronization, plugin installation, or successful ChatGPT connection.
+- **Canonical authority:** Browser IndexedDB (`dash-ledger-canonical-v2`); Cloudflare D1 is a disposable mirror + proposal inbox only.
 
 ## 2. Current Baseline
 
-- **Planning artifact:** DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md
-- **Artifact commit:** 8785911d1dd68351aa9bf68c12d31ca5fce96bec
-- **State:** current-baseline planning artifact.
-- **Runtime implementation:** not started.
-- **Dash Ledger app baseline inspected while planning:** main@1cdd22b80c22738134d231d6f37fb444a7ed18d5.
-- **Validation performed:** plan saved to canonical repository; no runtime validation was required because no runtime code changed.
+- **Branch:** `feature/gpt-bridge-zero-cost` (PR #5).
+- **Live Worker:** `https://dash-ledger-gpt-bridge.atlas-of-one.workers.dev`
+- **D1:** `dash-ledger-gpt-bridge` (`c032561a-3bd4-45ec-9f1d-0e0cf7c6ecd5`); migration `0001` applied.
+- **KV:** `dash-ledger-oauth` (`a00990dfb8a04d90bcdfe046cfab1f9c`).
+- **Secrets present (names only):** `AUTH_PEPPER`, `BOOTSTRAP_SECRET` (values in Cloudflare + macOS Keychain; never in repo).
+- **Bootstrapped private user:** `andrew` / Andrew (login secret in Keychain service `dash-ledger-gpt-login-andrew`).
+- **Plugin package:** `dist-plugin/dash-ledger-plugin-5f468a8efe6a.zip` (gitignored); `plugin/mcp.json` points at live `/mcp`.
+- **ChatGPT install:** NOT completed in this session — requires manual ChatGPT Developer mode UI (see Pending).
 
 ## 3. Artifact Contract
 
-The plan defines a zero-incremental-cost GPT Bridge in which browser IndexedDB remains the canonical Dash Ledger authority. Cloudflare infrastructure, if later implemented, is a disposable authenticated mirror/proposal bridge. The plan must not be interpreted as authorization to introduce paid infrastructure, mandatory cloud dependence, direct remote canonical mutation, receipt-image upload, or a tunnel.
+Cloudflare stores only a minimized structured mirror and GPT proposals. Ordinary Dash Ledger use remains offline-capable with the bridge disconnected. No OpenAI API calls from the app or Worker. No tunnels. Free-tier hard-stop (no auto overage) rechecked 2026-10-01.
 
 ## 4. Active Invariants
 
-- **INV-001 — Zero incremental infrastructure cost:** Required hosting/auth/data services must remain usable without recurring infrastructure charges.
-- **INV-002 — Local canonical authority:** Existing IndexedDB remains authoritative unless the user explicitly changes this architecture.
-- **INV-003 — Optional bridge:** Ordinary Dash Ledger operation remains functional with GPT Bridge disabled or unavailable.
-- **INV-004 — No tunnel:** No Secure MCP Tunnel, ngrok, Tailscale exposure, always-on MacBook, Big Mac service, or equivalent home-server dependency.
-- **INV-005 — No implementation-by-documentation:** Presence of the plan does not prove any bridge capability exists.
-- **INV-006 — Freshness gate:** OpenAI/Cloudflare capabilities, free-tier limits, and pricing must be reverified immediately before implementation because they are mutable external facts.
+- **INV-001 — Zero incremental infrastructure cost:** Workers/D1/KV Free; exceed limits fail closed.
+- **INV-002 — Local canonical authority:** IndexedDB remains authoritative.
+- **INV-003 — Optional bridge:** Disabled/disconnected restores serverless PWA behavior.
+- **INV-004 — No tunnel / no always-on Mac / no VPS.**
+- **INV-005 — No receipt images; no mirrored historical merchants or freeform notes.**
+- **INV-006 — GPT mutations are proposals only; local Accept uses repository `createExpense` / `updateShift`.**
 
 ## 5. Verified Working Behavior
 
-- **VER-001:** The zero-cost GPT Bridge implementation plan exists in the canonical repository at DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md.
-- **VER-002:** The planning artifact explicitly preserves the local-first authority boundary and defines Cloudflare as a disposable mirror/proposal bridge rather than the canonical ledger.
-- **VER-003:** Saving the plan did not require changes to Dash Ledger application/domain/data source files.
+- **VER-001:** Root `typecheck` / `lint` / `test` (255) / `build` green locally after bridge changes.
+- **VER-002:** Worker `npm run check` green (typecheck, 7 tests, dry-run build).
+- **VER-003:** Live `GET /health` returns service identity, `canonicalLedger: browser-indexeddb`, `costModel: free-tier-only`.
+- **VER-004:** Unauthenticated `/mcp` → 401 with no private payload; `/sync/*` bad bearer → 401; CORS allows GitHub Pages + local Vite origins only.
+- **VER-005:** OAuth discovery endpoints respond (`oauth-authorization-server`, protected-resource metadata).
+- **VER-006:** Synthetic disposable-user smoke: pair → tiny `dash-ledger-gpt-sync-v1` sync → unchanged retry → inbox reject/accept API → disconnect deletes cloud copy / revokes device (token 401 after).
+- **VER-007:** Unit/integration: `applyGptProposal` expense path via `createExpense`; shift_update via `updateShift`; privacy snapshot excludes notes/merchants/receipts.
+- **VER-008:** Disconnect path best-effort revokes OAuth grants via `listUserGrants`/`revokeGrant` then wipes D1 mirror rows (not the user credential row).
 
-## 6. Known Not Working
+## 6. Known Not Working / Incomplete
 
-None recorded for the GPT Bridge because implementation has not started.
+- **KNW-001:** End-to-end ChatGPT Developer-mode install + OAuth consent + live MCP tool call from ChatGPT UI not performed (manual).
+- **KNW-002:** Full MCP `queue_*` idempotency under real OAuth access token not exercised live (D1/API resolve + code-path idempotency covered; MCP OAuth tool path remains ChatGPT-manual).
 
 ## 7. Implemented but Unverified
 
-None. The GPT Bridge has not been implemented.
+- **UNV-001:** Physical mobile ChatGPT Android/iPhone MCP surface parity.
+- **UNV-002:** GitHub Pages serving the post-merge PWA with default Worker URL (pending merge to `main`).
 
 ## 8. Unknown or Evidence-Stale State
 
-- **UNK-001:** OpenAI plugin/MCP product requirements may change after 2026-10-01 and must be rechecked before implementation.
-- **UNK-002:** Cloudflare Workers, D1, KV free-tier pricing/limits may change after 2026-10-01 and must be rechecked before implementation.
-- **UNK-003:** Current ChatGPT Android/mobile support for every planned MCP/plugin capability must be tested during implementation rather than inferred from web behavior.
+- **UNK-001:** Long-term free-tier quota headroom under real Andrew/Greyson usage (circuit breakers exist; field measurement pending).
 
 ## 9. Pending Work
 
-- **PND-001:** Rebaseline current main immediately before implementation.
-- **PND-002:** Reverify current OpenAI plugin/MCP/auth requirements.
-- **PND-003:** Reverify Cloudflare Workers/D1/KV free-tier terms and confirm no required billing path.
-- **PND-004:** Execute Phase 1 Worker feasibility spike before adding ledger data.
-- **PND-005:** Stop if the no-cost, no-tunnel architecture cannot be maintained.
-- **PND-006:** Only after read-only bridge validation, evaluate proposal-inbox mutation flow.
-- **PND-007:** Treat multi-platform/order-level modeling as a later Dash Ledger domain change, not MCP-only storage.
+- **PND-001:** Manual ChatGPT: Settings → Security and login → enable Developer mode → ChatGPT Plugins → + → paste `https://dash-ledger-gpt-bridge.atlas-of-one.workers.dev/mcp` → create → complete OAuth as `andrew` → install from personal plugins → verify `@Dash Ledger` tool calls in a Work chat.
+- **PND-002:** Squash-merge PR #5 when fresh Actions green; confirm Pages deploy of default endpoint.
+- **PND-003:** Optional later: Greyson bootstrap + field trial metrics.
 
 ## 10. Active Decisions, Defaults, and Prohibitions
 
-- **DEC-001:** Plan file is planning-only and does not authorize implementation merely by existing.
-- **DEC-002:** Initial architecture is one-way local-to-cloud mirror plus GPT proposal inbox, not generic bidirectional sync.
-- **DEC-003:** Cloud mirror is disposable and not a backup authority.
-- **DEC-004:** Receipt images are excluded from initial cloud synchronization.
-- **DEC-005:** No OpenAI API calls from the Worker/PWA are required.
-- **DEC-006:** Private/workspace-first testing precedes any public plugin publication.
-- **DEC-007:** Direct remote canonical mutation is deferred behind a later evidence gate.
+- **DEC-001:** One-way mirror + proposal inbox (no direct remote canonical mutation).
+- **DEC-002:** Default PWA Worker base URL is the live workers.dev endpoint; field remains editable for diagnostics.
+- **DEC-003:** Keep `@modelcontextprotocol/server@2.0.0` and `agents@0.24.0` unless full compat proven.
+- **DEC-004:** Never commit secrets; Keychain services: `dash-ledger-gpt-bootstrap-secret`, `dash-ledger-gpt-login-andrew`.
 
 ## 11. Validation and Evidence Matrix
 
-| ID | Claim or behavior | State | Evidence | Validation method | Artifact/revision | Last checked | Recheck trigger |
-|---|---|---|---|---|---|---|---|
-| VER-001 | Plan exists in repository | verified | GitHub create-file result | Fetch/path existence | plan commit 8785911d | 2026-10-01 | plan deletion/rename |
-| VER-002 | Plan preserves local-first canonical authority | verified | Plan architecture/invariants | Direct plan inspection | plan commit 8785911d | 2026-10-01 | architecture-plan edit |
-| INV-001 | Required infrastructure remains zero-cost | requested | User requirement + plan | Fresh provider pricing/limits review | planning only | 2026-10-01 | implementation start/provider change |
-| INV-004 | No tunnel/home server | requested | User requirement + plan | Architecture inspection + deployed endpoint proof | planning only | 2026-10-01 | implementation start |
-| UNK-003 | Mobile capability parity | unknown | Not yet field-tested | ChatGPT Android + web test matrix | not implemented | 2026-10-01 | private plugin test |
+| ID | Claim | State | Evidence | Last checked |
+|---|---|---|---|---|
+| VER-001 | Root suite green | verified | local bun typecheck/lint/test/build | 2026-10-01 |
+| VER-002 | Worker check green | verified | npm run check | 2026-10-01 |
+| VER-003 | Live health | verified | GET /health | 2026-10-01 |
+| VER-006 | Synthetic sync/inbox/disconnect | verified | live curl smoke | 2026-10-01 |
+| KNW-001 | ChatGPT UI install | not done | manual remaining | 2026-10-01 |
 
-## 12. Current Change Scope and Impact Radius
+## 12. Compact Revision Log
 
-- **Allowed in this work unit:** Save the implementation plan and companion planning state only.
-- **Must remain unchanged:** Dash Ledger runtime code, IndexedDB schema/data, PWA behavior, deployment configuration, Cloudflare resources, OpenAI plugin configuration, user data.
-- **Potential impact:** Future implementation routing only.
-- **Mandatory validation:** Plan exists in canonical repository and is clearly marked not implemented.
-- **Checks deliberately reused:** Existing Dash Ledger runtime validation remains unaffected because no runtime file changed.
-- **Change class:** Documentation/planning only.
+### Revision 2 — 2026-10-01
 
-## 13. Compact Revision Log
+- Deployed Worker to workers.dev; set secrets metadata; bootstrapped andrew; live synthetic smoke; PWA default endpoint; OAuth revoke on disconnect; plugin package built; ChatGPT install remains manual.
 
 ### Revision 1 — 2026-10-01
 
-- **Artifact/source identity:** DASH_LEDGER_GPT_PLUGIN_ZERO_COST_PLAN.md at commit 8785911d1dd68351aa9bf68c12d31ca5fce96bec.
-- **State deltas:** Created a dedicated GPT Bridge subsystem operational state.
-- **New evidence:** Zero-cost implementation plan is durably stored in westkitty/dash_ledger_cc.
-- **Validation not performed:** No GPT Bridge implementation, Worker deployment, OAuth flow, D1/KV creation, synchronization, MCP tool execution, plugin installation, or mobile field test.
-- **Summary:** Preserve the zero-cost local-first architecture plan without overclaiming implementation.
+- Planning-only state created with the zero-cost plan.

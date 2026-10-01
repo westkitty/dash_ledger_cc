@@ -4,6 +4,7 @@ import { TextInput } from '../../components/forms';
 import { useLedger, useLedgerContext } from '../../state/store';
 import {
   applyGptProposal,
+  DEFAULT_GPT_BRIDGE_ENDPOINT,
   disconnectGptBridge,
   fetchGptProposals,
   getGptBridgeConfig,
@@ -29,7 +30,7 @@ export function GptBridgePanel() {
   const { mutate, pushToast } = useLedgerContext();
   const [config, setConfig] = useState<GptBridgeConfig | null>(null);
   const [proposals, setProposals] = useState<GptProposal[]>([]);
-  const [endpoint, setEndpoint] = useState('');
+  const [endpoint, setEndpoint] = useState(DEFAULT_GPT_BRIDGE_ENDPOINT);
   const [userId, setUserId] = useState('');
   const [loginSecret, setLoginSecret] = useState('');
   const [deviceLabel, setDeviceLabel] = useState('Dash Ledger browser');
@@ -143,8 +144,10 @@ export function GptBridgePanel() {
       {!config ? (
         <div className="stack">
           <p className="small muted">
-            Connect Dash Ledger to a privately hosted MCP bridge. Nothing is
-            shared until you connect and press Sync now.
+            Optional ChatGPT bridge. IndexedDB stays the canonical ledger and
+            offline Dash Ledger keeps working with this disconnected. Nothing is
+            shared until you connect and press Sync now. The default endpoint is
+            the free Cloudflare Worker; edit it only for diagnostics.
           </p>
           <TextInput
             label="Bridge endpoint"

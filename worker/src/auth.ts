@@ -221,6 +221,24 @@ async function handleSnapshot(request: Request, env: Env): Promise<Response> {
 async function handleDisconnect(request: Request, env: Env): Promise<Response> {
   const device = await authorizedDevice(request, env);
   if (!device) return jsonResponse({ error: 'unauthorized' }, 401);
+
+  // Best-effort OAuth grant revocation (KV). Mirror wipe continues even if this fails.
+  try {
+    let cursor: string | undefined;
+    do {
+      const page = await env.OAUTH_PROVIDER.listUserGrants(
+        device.user_id,
+        cursor ? { cursor, limit: 100 } : { limit: 100 },
+      );
+      for (const grant of page.items) {
+        await env.OAUTH_PROVIDER.revokeGrant(grant.id, device.user_id);
+      }
+      cursor = page.cursor;
+    } while (cursor);
+  } catch {
+    // Local disconnect and D1 wipe must still succeed.
+  }
+
   await deleteRemoteUserData(env, device.user_id);
   return jsonResponse({ ok: true, localLedgerDeleted: false });
 }

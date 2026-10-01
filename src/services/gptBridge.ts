@@ -8,6 +8,10 @@ import {
 } from '../db/repositories';
 
 const BRIDGE_DB_NAME = 'dash-ledger-gpt-bridge-v1';
+/** Production Worker base URL (no trailing slash). Editable in Settings for diagnostics. */
+export const DEFAULT_GPT_BRIDGE_ENDPOINT =
+  'https://dash-ledger-gpt-bridge.atlas-of-one.workers.dev';
+
 const CONFIG_KEY = 'config';
 
 export interface GptBridgeConfig {
