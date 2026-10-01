@@ -1,5 +1,5 @@
 import { createMcpHandler, getMcpAuthContext } from 'agents/mcp/server';
-import { McpServer } from '@modelcontextprotocol/server';
+import { McpServer, requireScopes } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { Env } from './env';
 import {
@@ -44,13 +44,6 @@ async function counted<T>(
 ): Promise<T> {
   await incrementUsage(env, userId, 'tool_calls');
   return fn();
-}
-
-function hasScope(
-  context: { http?: { authInfo?: { scopes?: string[] } } },
-  scope: string,
-): boolean {
-  return context.http?.authInfo?.scopes?.includes(scope) ?? false;
 }
 
 export function buildMcpServer(env: Env) {
@@ -263,13 +256,11 @@ export function buildMcpServer(env: Env) {
     {
       description:
         'Queue an expense proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
-      inputSchema: ExpenseProposalSchema.shape,
+      inputSchema: ExpenseProposalSchema,
+      scopeChallenge: requireScopes('ledger.propose'),
     },
     async (input, context) => {
       const userId = userIdFromContext();
-      if (!hasScope(context, 'ledger.propose')) {
-        throw new Error('ledger.propose scope is required.');
-      }
       const parsed = ExpenseProposalSchema.parse(input);
       return counted(env, userId, async () => {
         await incrementUsage(env, userId, 'proposals');
@@ -294,13 +285,11 @@ export function buildMcpServer(env: Env) {
     {
       description:
         'Queue a bounded shift-update proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
-      inputSchema: ShiftUpdateProposalSchema.shape,
+      inputSchema: ShiftUpdateProposalSchema,
+      scopeChallenge: requireScopes('ledger.propose'),
     },
     async (input, context) => {
       const userId = userIdFromContext();
-      if (!hasScope(context, 'ledger.propose')) {
-        throw new Error('ledger.propose scope is required.');
-      }
       const parsed = ShiftUpdateProposalSchema.parse(input);
       const shift = await getShift(env, userId, parsed.shiftId);
       if (!shift) {
