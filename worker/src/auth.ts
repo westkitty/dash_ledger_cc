@@ -32,7 +32,11 @@ function jsonResponse(value: unknown, status = 200): Response {
   });
 }
 
-function htmlResponse(value: string, status = 200): Response {
+function htmlResponse(
+  value: string,
+  status = 200,
+  extraHeaders: HeadersInit = {},
+): Response {
   return new Response(value, {
     status,
     headers: {
@@ -42,8 +46,18 @@ function htmlResponse(value: string, status = 200): Response {
       'Referrer-Policy': 'no-referrer',
       'Content-Security-Policy':
         "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'",
+      ...extraHeaders,
     },
   });
+}
+
+function cookieValue(request: Request, name: string): string | null {
+  const raw = request.headers.get('Cookie') ?? '';
+  for (const part of raw.split(';')) {
+    const [key, ...rest] = part.trim().split('=');
+    if (key === name) return rest.join('=');
+  }
+  return null;
 }
 
 function escapeHtml(value: string): string {
@@ -255,6 +269,7 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
   if (request.method === 'GET') {
     const scopeText = scopes.length ? scopes.join(', ') : 'ledger.read';
     const action = escapeHtml(url.pathname + url.search);
+    const csrf = crypto.randomUUID();
     return htmlResponse(
       '<!doctype html><html lang="en"><head><meta charset="utf-8">' +
         '<meta name="viewport" content="width=device-width">' +
@@ -273,10 +288,19 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
         '. Your browser IndexedDB remains the canonical ledger.</p>' +
         '<form method="post" action="' +
         action +
+        '"><input type="hidden" name="csrf" value="' +
+        escapeHtml(csrf) +
         '"><label>User ID</label><input name="userId" autocomplete="username" required>' +
         '<label>Login secret</label><input name="loginSecret" type="password" ' +
         'autocomplete="current-password" required>' +
         '<button name="decision" value="allow" type="submit">Allow</button></form></body></html>',
+      200,
+      {
+        'Set-Cookie':
+          '__Host-dash-csrf=' +
+          csrf +
+          '; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=600',
+      },
     );
   }
 
@@ -284,6 +308,15 @@ async function handleAuthorize(request: Request, env: Env): Promise<Response> {
     return new Response('Method not allowed', { status: 405 });
   }
   const form = await request.formData();
+  const csrfForm = String(form.get('csrf') ?? '');
+  const csrfCookie = cookieValue(request, '__Host-dash-csrf');
+  if (
+    !csrfForm ||
+    !csrfCookie ||
+    !timingSafeStringEqual(csrfForm, csrfCookie)
+  ) {
+    return htmlResponse('<p>Authorization request expired or failed CSRF validation.</p>', 403);
+  }
   if (form.get('decision') !== 'allow') {
     return htmlResponse('<p>Authorization denied.</p>', 403);
   }
