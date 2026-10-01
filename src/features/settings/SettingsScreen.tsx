@@ -6,6 +6,7 @@ import { NumberInput, SelectInput, TextInput } from '../../components/forms';
 import { saveSettings } from '../../db/repositories';
 import { applyThemeToDocument } from '../../state/store';
 import type { ThemeChoice } from '../../domain/types';
+import { GptBridgePanel } from './GptBridgePanel';
 
 export function SettingsScreen() {
   const { vehicles, settings } = useLedger();
@@ -122,10 +123,11 @@ export function SettingsScreen() {
         </Notice>
       </Card>
 
+      <GptBridgePanel />
+
       <Card label="About">
         <p className="small muted">
-          Dash Ledger keeps every record in this browser's local database. No account, no server, no
-          analytics. Export a backup regularly from Tax / Vault → Backup.
+          Dash Ledger keeps the canonical ledger in this browser's local database and works without an account or server. The optional GPT Bridge shares only the minimized fields described above when you explicitly connect and sync it. No analytics are added. Export a backup regularly from Tax / Vault → Backup.
         </p>
         <Link to="/diagnostics" className="link-btn">
           Open diagnostics &amp; self-test →
