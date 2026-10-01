@@ -1,0 +1,36 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "dash-ledger",
+  "version": "0.1.0",
+  "description": "Use a synchronized Dash Ledger mirror to review delivery-work history, calculate operating economics, and queue locally approved ledger proposals.",
+  "author": {
+    "name": "Stinky Weasel Productions"
+  },
+  "repository": "https://github.com/westkitty/dash_ledger_cc",
+  "license": "MIT",
+  "keywords": ["delivery", "gig-work", "mileage", "earnings", "ledger"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Dash Ledger",
+        "shortDescription": "Delivery work ledger",
+        "longDescription": "Review synchronized Dash Ledger shifts, mileage, earnings, and modeled operating economics. Dash Ledger keeps the browser's IndexedDB ledger canonical; ChatGPT reads a minimized remote mirror and can queue proposed ledger changes for local approval.",
+        "developerName": "Stinky Weasel Productions",
+        "category": "Productivity",
+        "capabilities": [
+          "Review synchronized delivery-work history",
+          "Compare shift periods",
+          "Calculate offer and commute economics",
+          "Queue local-review ledger proposals"
+        ],
+        "defaultPrompt": [
+          "How am I doing today?",
+          "Compare this week with last week.",
+          "Should I move markets based on my Dash Ledger data?",
+          "Queue this expense for Dash Ledger review."
+        ]
+      },
+      "onboardingSkill": "./skills/dash-ledger/SKILL.md"
+    }
+  }
+}
