@@ -1,5 +1,5 @@
 import { createMcpHandler, getMcpAuthContext } from 'agents/mcp/server';
-import { McpServer, requireScopes } from '@modelcontextprotocol/server';
+import { McpServer } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 import type { Env } from './env';
 import {
@@ -256,11 +256,13 @@ export function buildMcpServer(env: Env) {
     {
       description:
         'Queue an expense proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
-      inputSchema: ExpenseProposalSchema,
-      scopeChallenge: requireScopes('ledger.propose'),
+      inputSchema: ExpenseProposalSchema.shape,
     },
     async (input, context) => {
       const userId = userIdFromContext();
+      if (!(context.http?.authInfo?.scopes ?? []).includes('ledger.propose')) {
+        throw new Error('insufficient_scope: ledger.propose is required.');
+      }
       const parsed = ExpenseProposalSchema.parse(input);
       return counted(env, userId, async () => {
         await incrementUsage(env, userId, 'proposals');
@@ -285,11 +287,13 @@ export function buildMcpServer(env: Env) {
     {
       description:
         'Queue a bounded shift-update proposal for review inside Dash Ledger. This does not directly modify the canonical local ledger.',
-      inputSchema: ShiftUpdateProposalSchema,
-      scopeChallenge: requireScopes('ledger.propose'),
+      inputSchema: ShiftUpdateProposalSchema.shape,
     },
     async (input, context) => {
       const userId = userIdFromContext();
+      if (!(context.http?.authInfo?.scopes ?? []).includes('ledger.propose')) {
+        throw new Error('insufficient_scope: ledger.propose is required.');
+      }
       const parsed = ShiftUpdateProposalSchema.parse(input);
       const shift = await getShift(env, userId, parsed.shiftId);
       if (!shift) {
