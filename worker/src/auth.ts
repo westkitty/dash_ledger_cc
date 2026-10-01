@@ -15,6 +15,7 @@ import {
 } from './schemas';
 import {
   createDevice,
+  deleteRemoteUserData,
   getDeviceByDigest,
   getUser,
   incrementUsage,
@@ -204,6 +205,13 @@ async function handleSnapshot(request: Request, env: Env): Promise<Response> {
   });
 }
 
+async function handleDisconnect(request: Request, env: Env): Promise<Response> {
+  const device = await authorizedDevice(request, env);
+  if (!device) return jsonResponse({ error: 'unauthorized' }, 401);
+  await deleteRemoteUserData(env, device.user_id);
+  return jsonResponse({ ok: true, localLedgerDeleted: false });
+}
+
 async function handleInbox(request: Request, env: Env): Promise<Response> {
   const device = await authorizedDevice(request, env);
   if (!device) return jsonResponse({ error: 'unauthorized' }, 401);
@@ -330,6 +338,11 @@ export const defaultHandler: ExportedHandler<Env> = {
       request.method === 'POST'
     ) {
       response = await handleSnapshot(request, env);
+    } else if (
+      url.pathname === '/sync/disconnect' &&
+      request.method === 'POST'
+    ) {
+      response = await handleDisconnect(request, env);
     } else if (url.pathname === '/sync/inbox' && request.method === 'GET') {
       response = await handleInbox(request, env);
     } else if (
