@@ -370,7 +370,28 @@ export const defaultHandler = {
     }
 
     let response: Response;
-    if (url.pathname === '/health' && request.method === 'GET') {
+    if (
+      url.pathname === '/.well-known/openai-apps-challenge' &&
+      request.method === 'GET'
+    ) {
+      const token = env.OPENAI_APPS_CHALLENGE_TOKEN?.trim();
+      response = token
+        ? new Response(token, {
+            status: 200,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-store',
+              'X-Content-Type-Options': 'nosniff',
+            },
+          })
+        : new Response('not_configured', {
+            status: 404,
+            headers: {
+              'Content-Type': 'text/plain; charset=utf-8',
+              'Cache-Control': 'no-store',
+            },
+          });
+    } else if (url.pathname === '/health' && request.method === 'GET') {
       response = jsonResponse({
         ok: true,
         service: 'dash-ledger-gpt-bridge',
