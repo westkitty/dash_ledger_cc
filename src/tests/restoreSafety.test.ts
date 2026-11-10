@@ -156,10 +156,10 @@ describe('restore into an empty ledger', () => {
 describe('canonical backup identity', () => {
   it('writes an unambiguous marker and an envelope version', () => {
     const b = buildLedgerOnlyBackup(source());
-    expect(b.format).toBe('dash-ledger-ledger-only-v2');
+    expect(b.format).toBe('dash-ledger-ledger-only-v3');
     expect(b.formatVersion).toBe(BACKUP_FORMAT_VERSION);
     expect(b.producer).toMatch(/^dash-ledger-canonical@/);
-    expect(FULL_FORMAT).toBe('dash-ledger-backup-v2');
+    expect(FULL_FORMAT).toBe('dash-ledger-backup-v3');
   });
 
   it('never reuses the ambiguous v1 marker', () => {

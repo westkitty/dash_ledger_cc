@@ -6,17 +6,18 @@
   "project_id": "dash-ledger-cc",
   "project_name": "Dash Ledger",
   "project_root": ".",
-  "artifact_path": ".github/workflows/pages.yml",
-  "state_revision": 3,
-  "last_updated": "2026-10-01",
+  "artifact_path": "src/db/db.ts",
+  "state_revision": 4,
+  "last_updated": "2026-11-10",
   "current_baseline": {
-    "identity": "main@a4f5a981421b423959ee0a638a8a07faf9d71795",
+    "identity": "main@02da50acea83837c6ccec0c5f46fd9d2a0326f2b",
     "state": "implemented-unverified",
     "last_verified": "2026-09-09"
   },
   "scope_boundaries": [
     "Canonical westkitty/dash_ledger_cc repository only",
-    "GitHub Pages delivery configuration and directly affected deployment evidence"
+    "GitHub Pages delivery configuration and directly affected deployment evidence",
+    "Explicitly approved Phase 1 field-intelligence additive data foundation, branch-only, no deployment"
   ],
   "linked_parent_state": null
 }
@@ -35,12 +36,12 @@
 
 ## 2. Current Baseline
 
-- **Primary artifact:** `main@a4f5a981421b423959ee0a638a8a07faf9d71795`.
-- **Baseline state:** Pages workflow implemented; first deployment workflow run is executing and has not yet established live delivery.
+- **Primary artifact:** current published-source baseline `main@02da50acea83837c6ccec0c5f46fd9d2a0326f2b`; Phase 1 work is in `feat/v2-field-intelligence-phase1-20261110`, not on `main`.
+- **Baseline state:** main source inspected in November 2026; earlier Pages workflow notes below are historical, not proof of present live status. Phase 1 changes are local/branch-only.
 - **Source/build/install identity:** Bun 1.3.12; Node pinned by `.nvmrc`; `bun.lock` is authoritative.
 - **Active default user route:** the Desk (`#/`).
 - **Delivery state:** `.github/workflows/pages.yml` now builds and attempts GitHub Pages deployment from canonical `main`; live deployment remains unverified.
-- **Last verified baseline:** 2026-09-09.
+- **Last verified baseline:** 2026-09-09 prior release-gate evidence; 2026-11-10 separate Bun 1.3.12 Phase 1 workspace verification (not iPhone production).
 
 ## 3. Artifact Contract
 
@@ -104,12 +105,12 @@ No confirmed deployment-specific defect is recorded at this revision.
 
 ## 12. Current Change Scope and Impact Radius
 
-- **Allowed to change:** `OPERATIONAL_STATE.md` and `.github/workflows/pages.yml` only for this bounded deployment task.
-- **Must remain unchanged:** application/domain/data code, `vite.config.ts`, `bun.lock`, `package.json`, existing `.github/workflows/ci.yml`, database identity, backup formats, imports, and user-facing workflows.
-- **Potentially affected behavior:** static build delivery, PWA registration/scope, asset paths, live HTTPS origin, and update behavior.
-- **Mandatory checks:** clean build through the workflow; Pages artifact contains expected `dist/` files; successful Pages deployment when repository Pages source is enabled; live smoke test after deployment.
-- **Checks deliberately reused:** existing release-gate application regression evidence remains valid because no application source, build configuration, database, or PWA configuration was changed.
-- **Repair class:** bounded deployment configuration.
+- **Authorized 2026-11-10:** Phase 1 schema, runtime validators, nine new Dexie tables, additive v1→v2 migration, repository writes, v3 backup/restore and v2 compatibility, preservation regression tests, Phase 1 documentation, and this state revision on **feature branch only**.
+- **Protected:** untouched production/hosted IndexedDB, canonical `main`, all existing historical records, old-format recovery, receipts/images, CSV/tax binder, PWA routes, user-facing screens, optional GPT Bridge, CI and Pages deployment workflows.
+- **Validation achieved in isolated Big Mac checkout:** frozen Bun install; TypeScript; ESLint; 271/271 Vitest tests including 16 new Phase 1 tests; Vite/PWA production build; diff whitespace checks. Headless fake-indexeddb and source tests are not live Safari migrations.
+- **Release boundary:** GitHub branch may be committed/pushed for review. Do **not** merge, push to main, create release, or deploy. Browser database version upgrades are durable: old client code is not a valid downgrade path. Production rollout requires a distinct explicit approval, real Safari test, full v3 export, and a proved recovery strategy.
+- **Implementation limits:** no new UI; no market analytics; no modeled net profit; no platform account sync; v2 field data remains excluded from GPT Bridge. Legacy reporting remains authoritative to prevent double counting.
+- **Outstanding evidence:** live iPhone/Safari migration and storage checks, old-browser-after-upgrade backward compatibility, deployed user journey and production database restore not tested.
 
 ## 13. Compact Revision Log
 
@@ -134,3 +135,12 @@ No confirmed deployment-specific defect is recorded at this revision.
 - **New evidence:** Live Worker health/CORS/auth smoke; local 255-test suite; Worker check; packaged plugin zip under `dist-plugin/` (gitignored).
 - **Validation not performed:** ChatGPT UI OAuth/tool session; post-merge GitHub Pages confirmation for the new default bridge URL.
 
+
+### Revision 4 — 2026-11-10 (Phase 1 feature branch only)
+
+- **Task and authority:** approved v2 Field Intelligence Phase 1, with nine additive tables, schema validators, strong backup compatibility and tests; no merge/deploy.
+- **Source baseline:** `main@02da50acea83837c6ccec0c5f46fd9d2a0326f2b`; feature branch `feat/v2-field-intelligence-phase1-20261110`.
+- **Implemented (in isolated checkout; GitHub branch synchronization verified separately):** `src/domain/fieldIntelligence.ts`, `src/db/fieldRepositories.ts`, Dexie schema 2, field-table-including JSON backup v3, strict validation, v2 restore compatibility, legacy import v3 refusal, destructive-operation safety accounting, legacy shift/expense dependent link delete/Undo.
+- **Validation:** isolated Bun 1.3.12 frozen dependency install, typecheck PASS, lint PASS, 271/271 tests PASS, build PASS. No real-device test or live user data was modified.
+- **Protected invariants:** stable IndexedDB name; local-only authoritative records; legacy shifts and tax exports unchanged; full receipt image path and previous canonical v2 backup restore retained; `main` unchanged by this revision.
+- **Known release blocker:** old client schema will not safely open an upgraded Dexie database. A code-only rollback is not a real database rollback; obtain separate release approval and prove restore strategy before deployment.

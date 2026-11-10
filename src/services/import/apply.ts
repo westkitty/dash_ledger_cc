@@ -14,6 +14,7 @@
 import { getDB, openDB, KV_KEYS, APP_VERSION } from '../../db/db';
 import { newId, nowIso, countCanonicalRecords } from '../../db/repositories';
 import { SCHEMA_VERSION, type Meta, type Settings } from '../../domain/types';
+import { FIELD_TABLE_NAMES } from '../../domain/fieldIntelligence';
 import { dataUrlToBlob } from '../receiptImages';
 import { logDiagnostic } from '../diagnosticsLog';
 import {
@@ -118,6 +119,7 @@ export async function applyImport(
         db.merchantMemory,
         db.kv,
         db.importReports,
+        ...FIELD_TABLE_NAMES.map(name => db.table(name)),
       ],
       async () => {
         await Promise.all([
@@ -129,6 +131,7 @@ export async function applyImport(
           db.weeklyClosures.clear(),
           db.mileageRates.clear(),
           db.merchantMemory.clear(),
+          ...FIELD_TABLE_NAMES.map(name => db.table(name).clear()),
         ]);
 
         if (candidate.vehicles.length) await db.vehicles.bulkPut(candidate.vehicles);

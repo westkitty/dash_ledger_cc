@@ -23,6 +23,7 @@ import { seededMileageRates } from '../domain/mileageRates';
 import { recordClassification, normaliseMerchant } from '../domain/merchantMemory';
 import { logDiagnostic } from '../services/diagnosticsLog';
 import { requestPersistentStorage } from '../services/storageHealth';
+import { FIELD_TABLE_NAMES, type LegacyShiftLink, type SessionExpenseLink } from '../domain/fieldIntelligence';
 
 export function newId(): string {
   try {
@@ -156,7 +157,9 @@ export async function countCanonicalRecords(): Promise<number> {
     db.receipts.count(),
     db.weeklyClosures.count(),
   ]);
-  return vehicles + shifts + expenses + receipts + weeklyClosures;
+  const fieldCounts = await Promise.all(FIELD_TABLE_NAMES.map(name => db.table(name).count()));
+  return vehicles + shifts + expenses + receipts + weeklyClosures +
+    fieldCounts.reduce((sum, count) => sum + count, 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -414,6 +417,8 @@ export interface DeletedShift {
   shift: Shift;
   /** Expenses whose `shiftId` pointed at the deleted shift and was cleared. */
   detachedExpenseIds: string[];
+  /** Dependent v2 link rows preserved for Undo. Session data is never deleted. */
+  detachedFieldLinks?: LegacyShiftLink[];
 }
 
 /**
@@ -422,28 +427,36 @@ export interface DeletedShift {
  */
 export async function deleteShift(id: string): Promise<DeletedShift | null> {
   const db = getDB();
-  return db.transaction('rw', db.shifts, db.expenses, db.kv, async () => {
+  return db.transaction('rw', db.shifts, db.expenses, db.legacyShiftLinks, db.kv, async () => {
     const shift = await db.shifts.get(id);
     if (!shift) return null;
+    const detachedFieldLinks = await db.legacyShiftLinks.where('shiftId').equals(id).toArray();
+    await db.legacyShiftLinks.where('shiftId').equals(id).delete();
     await db.shifts.delete(id);
     const linked = await db.expenses.where('shiftId').equals(id).toArray();
     for (const e of linked) {
       await db.expenses.update(e.id, { shiftId: null, updatedAt: nowIso() });
     }
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
-    return { shift, detachedExpenseIds: linked.map((e) => e.id) };
+    return { shift, detachedExpenseIds: linked.map((e) => e.id), detachedFieldLinks };
   });
 }
 
 /** Re-create a shift removed by `deleteShift`, re-attaching still-present expenses. */
 export async function restoreDeletedShift(deleted: DeletedShift): Promise<void> {
   const db = getDB();
-  await db.transaction('rw', db.shifts, db.expenses, db.kv, async () => {
+  await db.transaction('rw', db.shifts, db.expenses, db.legacyShiftLinks, db.workSessions, db.kv, async () => {
     await db.shifts.put(deleted.shift);
     for (const eid of deleted.detachedExpenseIds) {
       const e = await db.expenses.get(eid);
       if (e && e.shiftId === null) {
         await db.expenses.update(eid, { shiftId: deleted.shift.id, updatedAt: nowIso() });
+      }
+    }
+    for (const link of deleted.detachedFieldLinks ?? []) {
+      if ((await db.workSessions.get(link.sessionId)) &&
+          !(await db.legacyShiftLinks.where('shiftId').equals(link.shiftId).first())) {
+        await db.legacyShiftLinks.put(link);
       }
     }
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
@@ -521,27 +534,31 @@ export interface DeletedExpense {
   expense: Expense;
   /** Receipt whose `expenseId` pointed at the deleted expense and was cleared. */
   detachedReceiptId: string | null;
+  /** Dependent v2 link rows preserved for Undo. Session data is never deleted. */
+  detachedFieldLinks?: SessionExpenseLink[];
 }
 
 /** Delete an expense. Linked receipt is preserved; its `expenseId` is cleared. */
 export async function deleteExpense(id: string): Promise<DeletedExpense | null> {
   const db = getDB();
-  return db.transaction('rw', db.expenses, db.receipts, db.kv, async () => {
+  return db.transaction('rw', db.expenses, db.receipts, db.sessionExpenseLinks, db.kv, async () => {
     const existing = await db.expenses.get(id);
     if (!existing) return null;
+    const detachedFieldLinks = await db.sessionExpenseLinks.where('expenseId').equals(id).toArray();
+    await db.sessionExpenseLinks.where('expenseId').equals(id).delete();
     await db.expenses.delete(id);
     if (existing.receiptId) {
       await db.receipts.update(existing.receiptId, { expenseId: null, updatedAt: nowIso() });
     }
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
-    return { expense: existing, detachedReceiptId: existing.receiptId ?? null };
+    return { expense: existing, detachedReceiptId: existing.receiptId ?? null, detachedFieldLinks };
   });
 }
 
 /** Re-create an expense removed by `deleteExpense`, re-attaching a still-present receipt. */
 export async function restoreDeletedExpense(deleted: DeletedExpense): Promise<void> {
   const db = getDB();
-  await db.transaction('rw', db.expenses, db.receipts, db.kv, async () => {
+  await db.transaction('rw', db.expenses, db.receipts, db.sessionExpenseLinks, db.workSessions, db.kv, async () => {
     let reattached = false;
     if (deleted.detachedReceiptId) {
       const r = await db.receipts.get(deleted.detachedReceiptId);
@@ -557,6 +574,12 @@ export async function restoreDeletedExpense(deleted: DeletedExpense): Promise<vo
       ...deleted.expense,
       receiptId: reattached ? deleted.detachedReceiptId : null,
     });
+    for (const link of deleted.detachedFieldLinks ?? []) {
+      if ((await db.workSessions.get(link.sessionId)) &&
+          !(await db.sessionExpenseLinks.where('expenseId').equals(link.expenseId).first())) {
+        await db.sessionExpenseLinks.put(link);
+      }
+    }
     await db.kv.put({ key: KV_KEYS.meta, value: { ...(await getMeta()), lastRecordChangeAt: nowIso() } });
   });
 }

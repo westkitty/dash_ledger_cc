@@ -22,6 +22,7 @@ import type {
 /** Backup / database dialects this build can read. */
 export type SourceFormat =
   | 'canonical-v2'
+  | 'canonical-v3'
   /** The ambiguous `dash-ledger-backup` marker, written by BOTH the original app and early cc builds. */
   | 'dash-ledger-v1'
   | 'grok-v1'

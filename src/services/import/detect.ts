@@ -8,6 +8,8 @@
 
 import {
   CANONICAL_FORMATS,
+  FULL_FORMAT,
+  LEDGER_ONLY_FORMAT,
   GROK_V1_FORMAT,
   LEGACY_V1_FORMATS,
 } from '../backupFormats';
@@ -63,9 +65,11 @@ export function detectSource(raw: unknown): Detection {
   if (rawFormat && CANONICAL_FORMATS.includes(rawFormat)) {
     return {
       ...common,
-      format: 'canonical-v2',
+      format: rawFormat === FULL_FORMAT || rawFormat === LEDGER_ONLY_FORMAT ? 'canonical-v3' : 'canonical-v2',
       variant: 'canonical',
-      label: 'Dash Ledger canonical backup (v2)',
+      label: rawFormat === FULL_FORMAT || rawFormat === LEDGER_ONLY_FORMAT
+        ? 'Dash Ledger canonical backup (v3 — restore only)'
+        : 'Dash Ledger canonical backup (v2)',
     };
   }
 

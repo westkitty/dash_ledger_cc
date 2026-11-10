@@ -21,6 +21,7 @@ import type {
   Meta,
 } from '../domain/types';
 import { SCHEMA_VERSION } from '../domain/types';
+import type { FieldRecordTypes } from '../domain/fieldIntelligence';
 import { logDiagnostic } from '../services/diagnosticsLog';
 
 export const APP_VERSION = '1.0.0';
@@ -64,6 +65,15 @@ export class DashLedgerDB extends Dexie {
   kv!: Table<KvRow, string>;
   /** Audit trail for legacy imports, including unresolved conflicts. */
   importReports!: Table<ImportReportRecord, string>;
+  workSessions!: Table<FieldRecordTypes['workSessions'], string>;
+  platformTotals!: Table<FieldRecordTypes['platformTotals'], string>;
+  onlineIntervals!: Table<FieldRecordTypes['onlineIntervals'], string>;
+  offerEvents!: Table<FieldRecordTypes['offerEvents'], string>;
+  completedJobs!: Table<FieldRecordTypes['completedJobs'], string>;
+  travelLegs!: Table<FieldRecordTypes['travelLegs'], string>;
+  marketVisits!: Table<FieldRecordTypes['marketVisits'], string>;
+  legacyShiftLinks!: Table<FieldRecordTypes['legacyShiftLinks'], string>;
+  sessionExpenseLinks!: Table<FieldRecordTypes['sessionExpenseLinks'], string>;
 
   constructor(name: string = DB_NAME) {
     super(name);
@@ -80,8 +90,25 @@ export class DashLedgerDB extends Dexie {
       importReports: 'id, createdAt',
     });
 
-    // Future migrations:
-    // this.version(2).stores({ ... }).upgrade(async (tx) => { ... });
+    // Additive v2 upgrade: Dexie carries all v1 tables forward unchanged.
+    // A failed upgrade rolls back at the IndexedDB versionchange transaction.
+    this.version(2).stores({
+      workSessions: 'id, status, localDate, vehicleId, primaryMarketId, createdAt',
+      platformTotals: 'id, sessionId, platform, &[sessionId+platform]',
+      onlineIntervals: 'id, sessionId, platform, startedAt',
+      offerEvents: 'id, sessionId, platform, observedAt',
+      completedJobs: 'id, sessionId, platform, startedAt',
+      travelLegs: 'id, sessionId, kind, startedAt',
+      marketVisits: 'id, sessionId, marketId, startedAt',
+      legacyShiftLinks: 'id, &shiftId, sessionId',
+      sessionExpenseLinks: 'id, &expenseId, sessionId',
+    }).upgrade(async (tx) => {
+      const table = tx.table('kv');
+      const row = await table.get('meta') as KvRow | undefined;
+      if (row && typeof row.value === 'object' && row.value !== null) {
+        await table.put({ key: 'meta', value: { ...row.value, schemaVersion: SCHEMA_VERSION } });
+      }
+    });
   }
 }
 

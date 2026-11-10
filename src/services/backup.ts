@@ -1,8 +1,8 @@
 /**
  * Full + ledger-only backup serialisation.
  *
- * Full backup ("dash-ledger-backup-v2") embeds every receipt image as a data URL
- * so the file is self-sufficient. Ledger-only ("dash-ledger-ledger-only-v2")
+ * Full backup ("dash-ledger-backup-v3") embeds every receipt image as a data URL
+ * so the file is self-sufficient. Ledger-only ("dash-ledger-ledger-only-v3")
  * keeps all receipt metadata but omits image bytes and is explicitly not
  * image-restorable.
  *
@@ -22,6 +22,7 @@ import type {
   Meta,
 } from '../domain/types';
 import { SCHEMA_VERSION } from '../domain/types';
+import { FIELD_TABLE_NAMES, type FieldCollections } from '../domain/fieldIntelligence';
 import { APP_VERSION } from '../db/db';
 import { getDB } from '../db/db';
 import { getReceiptBlob } from '../db/repositories';
@@ -43,7 +44,7 @@ export interface BackupReceipt extends Receipt {
   image: BackupImage | null;
 }
 
-export interface BackupCounts {
+export interface BackupCounts extends Record<keyof FieldCollections, number> {
   vehicles: number;
   shifts: number;
   expenses: number;
@@ -53,7 +54,7 @@ export interface BackupCounts {
   merchantMemory: number;
 }
 
-export interface FullBackup {
+export interface FullBackup extends FieldCollections {
   format: typeof FULL_FORMAT;
   /** Envelope discriminator. Separates this body from the ambiguous v1 marker. */
   formatVersion: typeof BACKUP_FORMAT_VERSION;
@@ -79,7 +80,7 @@ export interface LedgerOnlyBackup extends Omit<FullBackup, 'format' | 'receipts'
   receipts: Receipt[];
 }
 
-export interface BackupSource {
+export interface BackupSource extends Partial<FieldCollections> {
   settings: Settings;
   meta: Meta;
   vehicles: Vehicle[];
@@ -91,6 +92,14 @@ export interface BackupSource {
   merchantMemory: MerchantMemoryEntry[];
 }
 
+/**
+ * Existing callers that construct legacy-only test sources remain source-compatible.
+ * Production exports MUST use readBackupSource(), which loads every new table.
+ */
+function fieldArrays(src: BackupSource): FieldCollections {
+  return Object.fromEntries(FIELD_TABLE_NAMES.map(name => [name, src[name] ?? []])) as unknown as FieldCollections;
+}
+
 function counts(src: BackupSource): BackupCounts {
   return {
     vehicles: src.vehicles.length,
@@ -100,6 +109,7 @@ function counts(src: BackupSource): BackupCounts {
     weeklyClosures: src.weeklyClosures.length,
     mileageRates: src.mileageRates.length,
     merchantMemory: src.merchantMemory.length,
+    ...Object.fromEntries(FIELD_TABLE_NAMES.map(name => [name, (src[name] ?? []).length])) as Record<keyof FieldCollections, number>,
   };
 }
 
@@ -141,6 +151,7 @@ export async function buildFullBackup(
     receipts,
     mileageRates: src.mileageRates,
     merchantMemory: src.merchantMemory,
+    ...fieldArrays(src),
   };
 }
 
@@ -163,6 +174,7 @@ export function buildLedgerOnlyBackup(src: BackupSource): LedgerOnlyBackup {
     receipts: src.receipts,
     mileageRates: src.mileageRates,
     merchantMemory: src.merchantMemory,
+    ...fieldArrays(src),
   };
 }
 
@@ -186,6 +198,15 @@ export async function readBackupSource(): Promise<BackupSource> {
     receipts,
     mileageRates,
     merchantMemory,
+    workSessions,
+    platformTotals,
+    onlineIntervals,
+    offerEvents,
+    completedJobs,
+    travelLegs,
+    marketVisits,
+    legacyShiftLinks,
+    sessionExpenseLinks,
     settingsRow,
     metaRow,
   ] = await Promise.all([
@@ -196,6 +217,15 @@ export async function readBackupSource(): Promise<BackupSource> {
     db.receipts.toArray(),
     db.mileageRates.toArray(),
     db.merchantMemory.toArray(),
+    db.workSessions.toArray(),
+    db.platformTotals.toArray(),
+    db.onlineIntervals.toArray(),
+    db.offerEvents.toArray(),
+    db.completedJobs.toArray(),
+    db.travelLegs.toArray(),
+    db.marketVisits.toArray(),
+    db.legacyShiftLinks.toArray(),
+    db.sessionExpenseLinks.toArray(),
     db.kv.get('settings'),
     db.kv.get('meta'),
   ]);
@@ -207,6 +237,15 @@ export async function readBackupSource(): Promise<BackupSource> {
     receipts,
     mileageRates,
     merchantMemory,
+    workSessions,
+    platformTotals,
+    onlineIntervals,
+    offerEvents,
+    completedJobs,
+    travelLegs,
+    marketVisits,
+    legacyShiftLinks,
+    sessionExpenseLinks,
     settings: (settingsRow?.value as Settings) ?? ({} as Settings),
     meta: (metaRow?.value as Meta) ?? ({} as Meta),
   };

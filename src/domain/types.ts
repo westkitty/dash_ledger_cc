@@ -10,7 +10,7 @@
  *    ISO 8601 strings and may carry timezone / time-of-day.
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export type Iso = string; // ISO-8601 timestamp
 export type LocalDate = string; // YYYY-MM-DD, local calendar

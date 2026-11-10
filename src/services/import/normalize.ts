@@ -202,6 +202,17 @@ export function normalizeSource(raw: unknown, sourceLabel?: string): ImportAnaly
     };
   }
 
+  // Recovery imports only earlier formats. Import normalisation would silently
+  // discard all nine v3 field collections: refuse and direct to atomic Restore.
+  if (detection.format === 'canonical-v3') {
+    return {
+      candidate: empty,
+      report: failedReport(detection, sourceLabel, [
+        'This is a complete canonical v3 backup. Use Vault -> Backups -> Restore, not Recovery -> Import. No records were changed.',
+      ]),
+    };
+  }
+
   if (detection.schemaVersion !== null && detection.schemaVersion > 1) {
     return {
       candidate: empty,

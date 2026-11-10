@@ -19,6 +19,7 @@ import { countCanonicalRecords } from '../db/repositories';
 import { SCHEMA_VERSION, type Meta, type Settings } from '../domain/types';
 import { isValidLocalDate } from '../domain/dates';
 import { isValidLocalTime } from '../domain/duration';
+import { FIELD_TABLE_NAMES, validateFieldCollections } from '../domain/fieldIntelligence';
 import { dataUrlToBlob } from './receiptImages';
 import { logDiagnostic } from './diagnosticsLog';
 import {
@@ -27,6 +28,8 @@ import {
   GROK_V1_FORMAT,
   LEDGER_ONLY_FORMAT,
   LEGACY_V1_FORMATS,
+  V2_FULL_FORMAT,
+  V2_LEDGER_ONLY_FORMAT,
 } from './backupFormats';
 import { checkSafetyGate, type SafetyBackupAcknowledgement } from './safetyGate';
 import type { BackupReceipt } from './backup';
@@ -44,7 +47,7 @@ export interface ValidationResult {
   importable?: boolean;
 }
 
-const KNOWN_FORMATS = new Set([FULL_FORMAT, LEDGER_ONLY_FORMAT]);
+const KNOWN_FORMATS = new Set([FULL_FORMAT, LEDGER_ONLY_FORMAT, V2_FULL_FORMAT, V2_LEDGER_ONLY_FORMAT]);
 
 function isPlainObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -79,9 +82,13 @@ export function validateBackup(raw: unknown, supportedSchema = SCHEMA_VERSION): 
     errors.push(`Unrecognised backup format marker: ${format ?? '(missing)'}.`);
   }
 
-  if (raw.formatVersion !== undefined && raw.formatVersion !== BACKUP_FORMAT_VERSION) {
+  const isV2 = format === V2_FULL_FORMAT || format === V2_LEDGER_ONLY_FORMAT;
+  const isV3 = format === FULL_FORMAT || format === LEDGER_ONLY_FORMAT;
+  const expectedEnvelope = isV2 ? 2 : BACKUP_FORMAT_VERSION;
+  // Canonical v2 writers sometimes omitted formatVersion; preserve that read path.
+  if ((isV3 || raw.formatVersion !== undefined) && raw.formatVersion !== expectedEnvelope) {
     errors.push(
-      `Backup envelope version ${String(raw.formatVersion)} is not supported (expected ${BACKUP_FORMAT_VERSION}).`,
+      `Backup envelope version ${String(raw.formatVersion)} is not supported (expected ${expectedEnvelope}).`,
     );
   }
 
@@ -92,6 +99,12 @@ export function validateBackup(raw: unknown, supportedSchema = SCHEMA_VERSION): 
     errors.push(
       `Backup schema version ${schemaVersion} is newer than this app supports (${supportedSchema}). Update the app before restoring.`,
     );
+  }
+
+  if (isV2 && raw.schemaVersion !== 1) errors.push('Canonical v2 requires schemaVersion 1.');
+  if (isV3 && raw.schemaVersion !== SCHEMA_VERSION) errors.push('Canonical v3 requires schemaVersion 2.');
+  if (isV2 && FIELD_TABLE_NAMES.some(name => raw[name] !== undefined)) {
+    errors.push('Canonical v2 cannot carry field-intelligence records; use a v3 backup.');
   }
 
   const collections = ['vehicles', 'shifts', 'expenses', 'weeklyClosures', 'receipts', 'mileageRates', 'merchantMemory'];
@@ -230,7 +243,12 @@ export function validateBackup(raw: unknown, supportedSchema = SCHEMA_VERSION): 
     }
   });
 
-  const hasImages = format === FULL_FORMAT && receipts.some((r) => isPlainObject(r) && r.image);
+  if (isV3) {
+    errors.push(...validateFieldCollections(raw, { vehicleIds, shiftIds, expenseIds }));
+  }
+
+  const hasImages = (format === FULL_FORMAT || format === V2_FULL_FORMAT) &&
+    receipts.some((r) => isPlainObject(r) && r.image);
 
   return { ok: errors.length === 0, errors, format, hasImages };
 }
@@ -320,6 +338,7 @@ export async function restoreBackup(raw: unknown, options: RestoreOptions): Prom
         db.weeklyClosures,
         db.mileageRates,
         db.merchantMemory,
+        ...FIELD_TABLE_NAMES.map(name => db.table(name)),
         db.kv,
       ],
       async () => {
@@ -332,6 +351,7 @@ export async function restoreBackup(raw: unknown, options: RestoreOptions): Prom
           db.weeklyClosures.clear(),
           db.mileageRates.clear(),
           db.merchantMemory.clear(),
+          ...FIELD_TABLE_NAMES.map(name => db.table(name).clear()),
         ]);
         if (backup.vehicles?.length) await db.vehicles.bulkPut(backup.vehicles);
         if (backup.shifts?.length) await db.shifts.bulkPut(backup.shifts);
@@ -341,6 +361,10 @@ export async function restoreBackup(raw: unknown, options: RestoreOptions): Prom
         if (backup.weeklyClosures?.length) await db.weeklyClosures.bulkPut(backup.weeklyClosures);
         if (backup.mileageRates?.length) await db.mileageRates.bulkPut(backup.mileageRates);
         if (backup.merchantMemory?.length) await db.merchantMemory.bulkPut(backup.merchantMemory);
+        for (const name of FIELD_TABLE_NAMES) {
+          const rows = backup[name] as unknown[] | undefined;
+          if (rows?.length) await db.table(name).bulkPut(rows);
+        }
 
         const settings: Settings = { ...(backup.settings ?? {}) };
         await db.kv.put({ key: 'settings', value: settings });
@@ -372,6 +396,7 @@ export async function restoreBackup(raw: unknown, options: RestoreOptions): Prom
       receiptImages: blobRows.length,
       weeklyClosures: backup.weeklyClosures?.length ?? 0,
       mileageRates: backup.mileageRates?.length ?? 0,
+      ...Object.fromEntries(FIELD_TABLE_NAMES.map(name => [name, backup[name]?.length ?? 0])),
     },
   };
 }
